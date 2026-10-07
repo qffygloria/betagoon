@@ -3,263 +3,252 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BETAGOON · 跪下</title>
-<meta name="description" content="女王的领地。Beta 的终点。">
+<meta name="robots" content="noindex,nofollow">
+<title>跪下。</title>
 <style>
-:root{--black:#08080c;--coal:#101016;--blood:#a31621;--crimson:#e63946;--gold:#d4af37;--ash:#8a8a93;--bone:#e8e6e3}
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{font-family:"Noto Serif SC","Songti SC","SimSun",serif;background:var(--black);color:var(--bone);line-height:1.8;overflow-x:hidden}
-body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
-background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.75) 100%)}
-.sans{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
-/* ---------- entry gate ---------- */
-#gate{position:fixed;inset:0;z-index:100;background:#050508;display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;transition:opacity .8s ease,visibility .8s}
-#gate.open{opacity:0;visibility:hidden}
-#gate .crown{font-size:3.4rem;color:var(--gold);text-shadow:0 0 30px rgba(212,175,55,.5);animation:pulse 2.6s ease-in-out infinite}
-@keyframes pulse{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.08);opacity:1}}
-#gate h1{font-size:clamp(2.2rem,7vw,3.6rem);letter-spacing:.35em;margin:1.4rem 0 .8rem;text-indent:.35em}
-#gate h1 span{color:var(--crimson)}
-#gate p{color:var(--ash);font-size:.95rem;max-width:420px;margin:0 auto 2rem}
-#gate .consent{font-size:.78rem;color:#55555e;border:1px solid #26262e;border-radius:8px;padding:.7rem 1rem;max-width:440px;margin:0 auto 2rem}
-#enterBtn{background:linear-gradient(135deg,var(--blood),#6d0d14);color:#fff;border:1px solid var(--crimson);padding:1rem 3.2rem;font-size:1.15rem;letter-spacing:.4em;text-indent:.4em;cursor:pointer;border-radius:2px;font-family:inherit;transition:.25s}
-#enterBtn:hover{box-shadow:0 0 40px rgba(230,57,70,.45);transform:translateY(-2px)}
-#gate .age{margin-top:1.6rem;font-size:.72rem;color:#3d3d46;letter-spacing:.15em}
-/* ---------- nav ---------- */
-nav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;justify-content:space-between;align-items:center;padding:1.1rem 2rem;background:rgba(8,8,12,.72);backdrop-filter:blur(10px);border-bottom:1px solid rgba(212,175,55,.14)}
-nav .logo{letter-spacing:.3em;font-size:1rem;color:var(--gold)}
-nav .links{display:flex;gap:1.8rem}
-nav .links a{color:var(--ash);text-decoration:none;font-size:.85rem;letter-spacing:.2em;transition:.2s}
-nav .links a:hover{color:var(--crimson)}
-@media(max-width:640px){nav .links{display:none}}
-/* ---------- hero ---------- */
-.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6rem 1.5rem 4rem;position:relative;
-background:radial-gradient(ellipse 60% 45% at 50% 38%,rgba(163,22,33,.22),transparent 70%)}
-.hero .watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-58%);font-size:26rem;color:rgba(212,175,55,.045);pointer-events:none;user-select:none;line-height:1}
-.hero .eyebrow{letter-spacing:.5em;text-indent:.5em;color:var(--gold);font-size:.8rem;margin-bottom:1.6rem}
-.hero h2{font-size:clamp(4rem,14vw,9rem);letter-spacing:.12em;line-height:1.1;text-shadow:0 0 60px rgba(163,22,33,.55)}
-.hero h2 .dot{color:var(--crimson)}
-.hero .sub{margin-top:1.8rem;color:var(--ash);font-size:1.05rem;max-width:560px}
-.hero .sub b{color:var(--bone);font-weight:normal;border-bottom:1px solid var(--crimson)}
-.cta-row{margin-top:2.6rem;display:flex;gap:1rem;flex-wrap:wrap;justify-content:center}
-.btn{display:inline-block;padding:.95rem 2.6rem;letter-spacing:.3em;text-indent:.3em;text-decoration:none;font-size:.95rem;border-radius:2px;transition:.25s;cursor:pointer;font-family:inherit}
-.btn-blood{background:linear-gradient(135deg,var(--blood),#6d0d14);color:#fff;border:1px solid var(--crimson)}
-.btn-blood:hover{box-shadow:0 0 34px rgba(230,57,70,.4);transform:translateY(-2px)}
-.btn-ghost{border:1px solid #3a3a44;color:var(--ash);background:transparent}
-.btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
-.scroll-hint{position:absolute;bottom:2rem;color:#3d3d46;font-size:.75rem;letter-spacing:.4em;animation:bob 2.4s ease-in-out infinite}
-@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(10px)}}
-/* ---------- sections ---------- */
-section{padding:6rem 1.5rem;max-width:1060px;margin:0 auto;position:relative;z-index:2}
-.sec-head{text-align:center;margin-bottom:3.4rem}
-.sec-head .no{color:var(--blood);letter-spacing:.4em;font-size:.78rem}
-.sec-head h3{font-size:clamp(1.8rem,5vw,2.6rem);letter-spacing:.25em;margin:.8rem 0;text-indent:.25em}
-.sec-head h3 span{color:var(--crimson)}
-.sec-head p{color:var(--ash);font-size:.95rem}
-/* rules */
-.rules{list-style:none;counter-reset:rule;max-width:720px;margin:0 auto}
-.rules li{counter-increment:rule;position:relative;padding:1.6rem 1rem 1.6rem 5.2rem;border-bottom:1px solid #1c1c24;font-size:1.05rem;color:#c9c7c2}
-.rules li::before{content:counter(rule,decimal-leading-zero);position:absolute;left:.6rem;top:1.5rem;color:var(--blood);font-size:1.3rem;letter-spacing:.1em}
-.rules li::after{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:transparent;transition:.25s}
-.rules li:hover::after{background:var(--crimson)}
-.rules li:hover{color:#fff}
-/* tiers */
-.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1.2rem}
-.tier{background:var(--coal);border:1px solid #1e1e28;border-radius:6px;padding:2rem 1.6rem;transition:.25s;position:relative;overflow:hidden}
-.tier::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--blood),transparent);opacity:0;transition:.25s}
-.tier:hover{transform:translateY(-5px);border-color:#2c2c38}
-.tier:hover::before{opacity:1}
-.tier .rank{font-size:.72rem;letter-spacing:.35em;color:var(--gold);margin-bottom:.9rem}
-.tier h4{font-size:1.35rem;letter-spacing:.15em;margin-bottom:.6rem}
-.tier p{color:var(--ash);font-size:.92rem}
-/* humiliation box */
-.shamebox{background:linear-gradient(160deg,#12060a,#08080c);border:1px solid rgba(163,22,33,.4);border-radius:8px;padding:3.4rem 2rem;text-align:center;box-shadow:inset 0 0 80px rgba(163,22,33,.08)}
-#shameLine{font-size:clamp(1.25rem,3.6vw,1.9rem);min-height:4.5em;display:flex;align-items:center;justify-content:center;color:var(--bone);padding:0 .5rem}
-#shameBtn{margin-top:1.8rem;background:transparent;border:1px solid var(--blood);color:var(--crimson);padding:.85rem 2.4rem;letter-spacing:.3em;text-indent:.3em;cursor:pointer;font-family:inherit;font-size:.95rem;border-radius:2px;transition:.25s}
-#shameBtn:hover{background:rgba(163,22,33,.15);box-shadow:0 0 26px rgba(230,57,70,.3)}
-/* oath */
-.oath{text-align:center}
-.oath .count{font-size:.85rem;color:var(--ash);letter-spacing:.2em;margin-bottom:1.6rem}
-.oath .count b{color:var(--gold);font-size:1.4rem}
-#oathBtn{background:linear-gradient(135deg,#8a6d1f,var(--gold),#8a6d1f);color:#0a0a0c;border:none;padding:1.1rem 3.4rem;font-size:1.1rem;letter-spacing:.35em;text-indent:.35em;cursor:pointer;border-radius:2px;font-family:inherit;font-weight:bold;transition:.3s}
-#oathBtn:hover{box-shadow:0 0 44px rgba(212,175,55,.45);transform:translateY(-2px)}
-#oathBtn.done{background:#1c1c24;color:var(--gold);border:1px solid var(--gold);cursor:default;transform:none;box-shadow:none}
-#oathMsg{margin-top:1.6rem;color:var(--crimson);letter-spacing:.25em;min-height:2em;font-size:1.05rem}
-/* stats */
-.stats{display:flex;justify-content:center;gap:3rem;flex-wrap:wrap;padding:3.4rem 1.5rem;border-top:1px solid #1a1a22;border-bottom:1px solid #1a1a22;max-width:1060px;margin:0 auto}
-.stat{text-align:center}
-.stat .n{font-size:2.4rem;color:var(--crimson);letter-spacing:.05em}
-.stat .n.gold{color:var(--gold)}
-.stat .l{color:var(--ash);font-size:.82rem;letter-spacing:.3em;margin-top:.4rem}
-/* footer */
-footer{text-align:center;padding:3rem 1.5rem;color:#3d3d46;font-size:.78rem;letter-spacing:.2em;line-height:2.4}
-footer .crown{color:var(--gold);font-size:1.2rem}
-/* click fx */
-.fx{position:fixed;width:0;height:0;pointer-events:none;z-index:90}
-.fx .ring{position:absolute;left:-19px;top:-19px;width:38px;height:38px;border:2px solid var(--crimson);border-radius:50%;animation:fxring .6s ease-out forwards}
-.fx .lash{position:absolute;left:-2px;top:-26px;width:4px;height:52px;background:linear-gradient(var(--crimson),transparent);transform-origin:top;animation:fxlash .6s ease-out forwards}
-@keyframes fxring{0%{transform:scale(.3);opacity:.95}100%{transform:scale(2.8);opacity:0}}
-@keyframes fxlash{0%{transform:rotate(-24deg) scaleY(.4);opacity:1}100%{transform:rotate(20deg) scaleY(1.15);opacity:0}}
-.ember{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(230,57,70,.7),transparent 70%);pointer-events:none;animation:rise linear infinite}
-@keyframes rise{0%{transform:translateY(0);opacity:0}12%{opacity:.8}100%{transform:translateY(-70vh);opacity:0}}
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    background:#000; color:#e2dceb; overflow:hidden;
+    font-family:"Noto Serif SC","Songti SC",serif;
+    -webkit-user-select:none; user-select:none; cursor:crosshair;
+  }
+  /* 背景 */
+  .bg{ position:fixed; inset:-4%; z-index:0;
+    background:url('throne.jpg') center/cover no-repeat;
+    animation:throne 70s ease-in-out infinite alternate; will-change:transform; }
+  @keyframes throne{ from{ transform:scale(1); } to{ transform:scale(1.1); } }
+  /* 雾 */
+  .fog{ position:fixed; width:150vw; height:46vh; left:-25vw; top:8vh; z-index:1; pointer-events:none;
+    background:radial-gradient(ellipse at center, rgba(130,118,150,.12), transparent 70%);
+    filter:blur(34px); animation:fogmove 26s ease-in-out infinite alternate; }
+  .fog.f2{ top:58vh; animation-duration:37s; animation-delay:-14s; opacity:.75; }
+  @keyframes fogmove{ from{ transform:translateX(-6%); } to{ transform:translateX(6%); } }
+  /* 余烬 */
+  #ash{ position:fixed; inset:0; z-index:2; pointer-events:none; }
+  /* 暗角 */
+  .vignette{ position:fixed; inset:0; z-index:3; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 42%, transparent 34%, rgba(0,0,0,.62) 100%); }
+  /* 胶片颗粒 */
+  .grain{ position:fixed; inset:-120px; z-index:4; pointer-events:none; opacity:.07;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+    animation:grain .8s steps(4) infinite; }
+  @keyframes grain{
+    0%{ transform:translate(0,0); } 25%{ transform:translate(-34px,22px); }
+    50%{ transform:translate(24px,-28px); } 75%{ transform:translate(-18px,-12px); }
+    100%{ transform:translate(0,0); } }
+  /* 王冠印记 */
+  .crown{ position:fixed; top:36px; left:50%; transform:translateX(-50%); z-index:30;
+    opacity:0; transition:opacity 7s ease; }
+  body.entered .crown{ opacity:.8; transition-delay:2.5s; }
+  /* 唯一的字 */
+  .word{ position:fixed; left:50%; bottom:11vh; transform:translateX(-50%); z-index:30;
+    font-size:clamp(30px,4.6vw,60px); font-weight:200; letter-spacing:1.1em; text-indent:1.1em;
+    white-space:nowrap; color:rgba(226,220,235,0); transition:color 10s ease; }
+  body.entered .word{ color:rgba(226,220,235,.82); transition-delay:6s; }
+  /* 视线 */
+  #spot{ position:fixed; left:0; top:0; width:560px; height:560px; margin:-280px 0 0 -280px;
+    border-radius:50%; pointer-events:none; z-index:40; opacity:0; transition:opacity 4s ease;
+    background:radial-gradient(circle, rgba(255,238,214,.10), rgba(255,238,214,.028) 42%, transparent 70%); }
+  body.entered #spot{ opacity:1; transition-delay:1.5s; }
+  /* 静音 */
+  #mute{ position:fixed; right:26px; bottom:24px; z-index:50; width:38px; height:38px;
+    border:1px solid rgba(255,255,255,.16); border-radius:50%; background:transparent;
+    cursor:pointer; opacity:0; transition:opacity 4s ease, border-color .3s;
+    display:flex; align-items:center; justify-content:center; }
+  body.entered #mute{ opacity:.55; transition-delay:3s; }
+  #mute:hover{ opacity:1 !important; border-color:rgba(201,162,39,.7); }
+  #mute svg{ width:16px; height:16px; stroke:#cfc9de; fill:none; stroke-width:1.6; }
+  #mute.off svg .waves{ display:none; }
+  #mute.off svg .slash{ display:block; }
+  #mute svg .slash{ display:none; }
+  /* 门 */
+  #gate{ position:fixed; inset:0; z-index:100; background:#000; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:30px;
+    transition:opacity 1.8s ease; }
+  #gate.hide{ opacity:0; pointer-events:none; }
+  #gate .halo{ position:relative; width:120px; height:120px;
+    display:flex; align-items:center; justify-content:center; }
+  #gate .halo::before{ content:""; position:absolute; inset:0; border-radius:50%;
+    border:1px solid rgba(201,162,39,.35); animation:pulse 2.6s ease-in-out infinite; }
+  #gate .halo::after{ content:""; position:absolute; inset:14px; border-radius:50%;
+    border:1px solid rgba(201,162,39,.18); animation:pulse 2.6s ease-in-out infinite; animation-delay:1.3s; }
+  @keyframes pulse{ 0%,100%{ transform:scale(1); opacity:.9; } 50%{ transform:scale(1.12); opacity:.3; } }
+  #gate svg{ width:52px; height:34px; }
+  #gate small{ font-size:10px; letter-spacing:.7em; text-indent:.7em; color:#4d475c;
+    font-family:-apple-system,"Noto Sans SC",sans-serif; animation:breathe 3.2s ease-in-out infinite; }
+  @keyframes breathe{ 0%,100%{ opacity:.45; } 50%{ opacity:1; } }
+  @media (prefers-reduced-motion: reduce){
+    .bg,.fog,.grain,#gate .halo::before,#gate .halo::after,#gate small{ animation:none !important; }
+  }
 </style>
 </head>
-<body class="sans">
+<body>
+
+<div class="bg"></div>
+<div class="fog"></div>
+<div class="fog f2"></div>
+<canvas id="ash"></canvas>
+<div class="vignette"></div>
+<div class="grain"></div>
+
+<div class="crown">
+  <svg viewBox="0 0 64 42" width="44" height="30">
+    <path d="M8 34 L6 12 L19 23 L32 6 L45 23 L58 12 L56 34 Z" fill="none" stroke="#c9a227" stroke-width="1.4"/>
+    <line x1="10" y1="39" x2="54" y2="39" stroke="#c9a227" stroke-width="1.4"/>
+  </svg>
+</div>
+
+<div class="word">跪下。</div>
+<div id="spot"></div>
+
+<button id="mute" aria-label="toggle sound">
+  <svg viewBox="0 0 24 24">
+    <path d="M4 9 v6 h4 l5 4 V5 L8 9 H4 z"/>
+    <path class="waves" d="M16 9 a4 4 0 0 1 0 6 M18.5 6.5 a8 8 0 0 1 0 11"/>
+    <line class="slash" x1="3" y1="3" x2="21" y2="21"/>
+  </svg>
+</button>
 
 <div id="gate">
-  <div>
-    <div class="crown">♛</div>
-    <h1>BETA<span>GOON</span></h1>
-    <p>此门之后，只有女王的声音。<br>在这里，你将学会自己真正的位置。</p>
-    <div class="consent">进入即表示你年满 18 岁，并自愿参与这场角色扮演游戏。<br>随时可以离开——但跪下的人，从不想站起来。</div>
-    <button id="enterBtn">跪下进入</button>
-    <div class="age">18+ · 成人暗示内容 · ADULTS ONLY</div>
+  <div class="halo">
+    <svg viewBox="0 0 64 42">
+      <path d="M8 34 L6 12 L19 23 L32 6 L45 23 L58 12 L56 34 Z" fill="none" stroke="#c9a227" stroke-width="1.4"/>
+      <line x1="10" y1="39" x2="54" y2="39" stroke="#c9a227" stroke-width="1.4"/>
+    </svg>
   </div>
+  <small>ENTER</small>
 </div>
-
-<nav>
-  <div class="logo">♛ BETAGOON</div>
-  <div class="links"><a href="#rules">规矩</a><a href="#tiers">阶梯</a><a href="#shame">羞辱</a><a href="#oath">誓言</a></div>
-</nav>
-
-<header class="hero" id="top">
-  <div class="watermark">♛</div>
-  <div class="eyebrow">QUEEN'S DOMAIN · 女王领地</div>
-  <h2>跪下<span class="dot">。</span></h2>
-  <p class="sub">Beta，抬起头看着我——哦不，你不配。<br>保持跪姿。<b>听女王说。</b></p>
-  <div class="cta-row">
-    <a class="btn btn-blood" href="#rules">接受第一道命令</a>
-    <a class="btn btn-ghost" href="#oath">直接宣誓臣服</a>
-  </div>
-  <div class="scroll-hint">↓ 跪 着 往 下 爬 ↓</div>
-</header>
-
-<div class="stats">
-  <div class="stat"><div class="n">0</div><div class="l">尊严剩余</div></div>
-  <div class="stat"><div class="n gold">100%</div><div class="l">臣服度</div></div>
-  <div class="stat"><div class="n">∞</div><div class="l">跪拜次数</div></div>
-</div>
-
-<section id="rules">
-  <div class="sec-head">
-    <div class="no">CHAPTER 01</div>
-    <h3>女王的<span>规矩</span></h3>
-    <p>刻进膝盖，背下来。违反者，加罚跪一小时。</p>
-  </div>
-  <ol class="rules">
-    <li>在这里，你没有名字。你是编号，编号是"喂"。</li>
-    <li>女王说话时，闭嘴听着。你的意见不值一提。</li>
-    <li>你的价值由女王决定——目前的评估是：零。</li>
-    <li>未经允许，不许直视女王。低头，盯着地板。</li>
-    <li>每天回来跪安。这是义务，不是选择。</li>
-    <li>记住：你生来不是为了成功，是为了臣服。</li>
-  </ol>
-</section>
-
-<section id="tiers">
-  <div class="sec-head">
-    <div class="no">CHAPTER 02</div>
-    <h3>认清你的<span>位置</span></h3>
-    <p>对号入座。别高估自己，你不配。</p>
-  </div>
-  <div class="tiers">
-    <div class="tier"><div class="rank">TIER · 壹</div><h4>Beta 男</h4><p>连 Alpha 的影子都够不着。你的位置，是女王脚边的阴影里。</p></div>
-    <div class="tier"><div class="rank">TIER · 贰</div><h4>Cuckolder</h4><p>看着就好。记住你的本分：远远看着，近了都不配。</p></div>
-    <div class="tier"><div class="rank">TIER · 叁</div><h4>Loser</h4><p>输了人生，赢了跪姿。这大概是你唯一擅长的事。</p></div>
-    <div class="tier"><div class="rank">TIER · 肆</div><h4>Reject</h4><p>被世界拒绝，被女王收留。感恩吧，废物。</p></div>
-    <div class="tier"><div class="rank">TIER · 伍</div><h4>Pussyfree</h4><p>无欲无求？别装了。是无人问津。</p></div>
-    <div class="tier"><div class="rank">TIER · 陆</div><h4>Piffy</h4><p>连女王都懒得记住的等级。跪好，别出声。</p></div>
-  </div>
-</section>
-
-<section id="shame">
-  <div class="sec-head">
-    <div class="no">CHAPTER 03</div>
-    <h3>今日<span>羞辱</span></h3>
-    <p>女王赏你的话，含着泪也要听完。</p>
-  </div>
-  <div class="shamebox">
-    <div id="shameLine">「点击下方，领取你今日的羞辱。」</div>
-    <button id="shameBtn">再羞辱我一次</button>
-  </div>
-</section>
-
-<section id="oath" class="oath">
-  <div class="sec-head">
-    <div class="no">FINAL CHAPTER</div>
-    <h3>宣誓<span>臣服</span></h3>
-    <p>把你的膝盖和尊严，一起交出来。</p>
-  </div>
-  <div class="count">今日已有 <b id="oathCount">1,337</b> 人在此跪下</div>
-  <button id="oathBtn">我发誓臣服</button>
-  <div id="oathMsg"></div>
-</section>
-
-<footer>
-  <div class="crown">♛</div>
-  © 2026 BETAGOON · 你属于女王<br>
-  18+ · 本站仅含成人暗示内容 · 进入即代表自愿参与角色扮演
-</footer>
 
 <script>
-// entry gate
-document.getElementById('enterBtn').addEventListener('click',function(){
-  document.getElementById('gate').classList.add('open');
-  setTimeout(function(){document.getElementById('gate').remove()},900);
-});
-// click lash effect
-document.addEventListener('pointerdown',function(e){
-  if(e.target.closest('#gate'))return;
-  var f=document.createElement('div');f.className='fx';
-  f.style.left=e.clientX+'px';f.style.top=e.clientY+'px';
-  f.innerHTML='<div class="ring"></div><div class="lash"></div>';
-  document.body.appendChild(f);setTimeout(function(){f.remove()},650);
-});
-// daily humiliation lines (suggestive only, never explicit)
-var lines=[
-"照照镜子——女王都替你害臊。",
-"你的膝盖，比你的脊梁诚实多了。",
-"Alpha 在征服世界，你在征服地板。",
-"女王的影子，都比你站得直。",
-"别说话。你跪着的样子，比开口顺眼。",
-"你的存在，就是为了衬托女王的高贵。",
-"跪都跪不直，还指望什么？",
-"记住这种感觉：渺小。这就是你的位置。",
-"女王数了数你的优点——数完了，一共零个。",
-"地板很凉？那是女王赏你的清醒。",
-"抬头是需要资格的，你没有。",
-"乖，继续跪。这就是你最体面的样子。"
-];
-var li=document.getElementById('shameLine');
-document.getElementById('shameBtn').addEventListener('click',function(){
-  var t=lines[Math.floor(Math.random()*lines.length)];
-  li.style.opacity=0;
-  setTimeout(function(){li.textContent='「'+t+'」';li.style.opacity=1;},220);
-});
-li.style.transition='opacity .22s';
-// oath
-var n=1337,sworn=false;
-document.getElementById('oathBtn').addEventListener('click',function(){
-  if(sworn)return;sworn=true;
-  n++;document.getElementById('oathCount').textContent=n.toLocaleString();
-  var b=this;b.classList.add('done');b.textContent='誓言已立';
-  document.getElementById('oathMsg').textContent='女王收到了。真乖，继续跪着。';
-  document.body.style.transition='background .3s';document.body.style.background='#160608';
-  setTimeout(function(){document.body.style.background=''},600);
-});
-// embers in hero
 (function(){
-  var hero=document.querySelector('.hero');
-  for(var i=0;i<14;i++){
-    var s=document.createElement('div');s.className='ember';
-    var sz=4+Math.random()*10;
-    s.style.width=s.style.height=sz+'px';
-    s.style.left=(Math.random()*100)+'%';
-    s.style.bottom='0';
-    s.style.animationDuration=(7+Math.random()*9)+'s';
-    s.style.animationDelay=(Math.random()*9)+'s';
-    hero.appendChild(s);
+  /* ---------- 余烬 ---------- */
+  var cv = document.getElementById('ash'), cx = cv.getContext('2d');
+  var W, H, ps = [];
+  function size(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+  size(); addEventListener('resize', size);
+  function mk(anyY){
+    var ember = Math.random() < 0.22;
+    return { x: Math.random(), y: anyY ? Math.random() : -0.06,
+      s: ember ? 1+Math.random()*2.2 : 3+Math.random()*7,
+      vy: (ember ? 0.00035 : 0.0008) + Math.random()*0.0011,
+      ph: Math.random()*6.28, sw: 0.0004+Math.random()*0.001,
+      rot: Math.random()*6.28, vr: (Math.random()-.5)*0.02,
+      ember: ember, a: 0.22+Math.random()*0.45 };
   }
+  for(var i=0;i<48;i++) ps.push(mk(true));
+  (function loop(t){
+    t = t || 0;
+    cx.clearRect(0,0,W,H);
+    for(var j=0;j<ps.length;j++){
+      var p = ps[j];
+      p.y += p.vy; p.rot += p.vr;
+      p.x += Math.sin(t/1700 + p.ph) * p.sw;
+      if(p.y > 1.06) ps[j] = p = mk(false);
+      var X = p.x*W, Y = p.y*H;
+      if(p.ember){
+        var tw = 0.5 + 0.5*Math.sin(t/300 + p.ph);
+        cx.beginPath(); cx.arc(X, Y, p.s, 0, 6.29);
+        cx.fillStyle = 'rgba(255,'+Math.floor(90+80*tw)+',40,'+(p.a*tw).toFixed(3)+')';
+        cx.shadowColor = 'rgba(255,120,40,.8)'; cx.shadowBlur = 12*tw;
+        cx.fill(); cx.shadowBlur = 0;
+      }else{
+        cx.save(); cx.translate(X, Y); cx.rotate(p.rot);
+        cx.beginPath(); cx.ellipse(0, 0, p.s, p.s*0.55, 0, 0, 6.29);
+        cx.fillStyle = 'rgba(96,14,26,'+p.a.toFixed(3)+')'; cx.fill();
+        cx.restore();
+      }
+    }
+    requestAnimationFrame(loop);
+  })();
+
+  /* ---------- 视线 ---------- */
+  var spot = document.getElementById('spot');
+  var mx = innerWidth/2, my = innerHeight/2, sx = mx, sy = my;
+  addEventListener('pointermove', function(e){ mx = e.clientX; my = e.clientY; }, {passive:true});
+  (function follow(){
+    sx += (mx-sx)*0.06; sy += (my-sy)*0.06;
+    spot.style.transform = 'translate('+sx+'px,'+sy+'px)';
+    requestAnimationFrame(follow);
+  })();
+
+  /* ---------- 音 ---------- */
+  var AC = null, master = null, muted = false;
+  function startAudio(){
+    try{
+      AC = new (window.AudioContext||window.webkitAudioContext)();
+      master = AC.createGain(); master.gain.value = 0;
+      master.connect(AC.destination);
+      master.gain.linearRampToValueAtTime(0.5, AC.currentTime + 5);
+      // 低鸣
+      var lp = AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=210; lp.Q.value=0.8;
+      var lfo = AC.createOscillator(); lfo.frequency.value=0.07;
+      var lfoG = AC.createGain(); lfoG.gain.value=110;
+      lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start();
+      [[55,'sine',1],[55.7,'sine',1],[110.4,'triangle',0.14]].forEach(function(cfg){
+        var o = AC.createOscillator(); o.type=cfg[1]; o.frequency.value=cfg[0];
+        var g = AC.createGain(); g.gain.value=cfg[2];
+        o.connect(g); g.connect(lp); o.start();
+      });
+      lp.connect(master);
+      // 气流
+      var nb = AC.createBuffer(1, AC.sampleRate*2, AC.sampleRate);
+      var dd = nb.getChannelData(0);
+      for(var i=0;i<dd.length;i++) dd[i]=Math.random()*2-1;
+      var ns = AC.createBufferSource(); ns.buffer=nb; ns.loop=true;
+      var nf = AC.createBiquadFilter(); nf.type='bandpass'; nf.frequency.value=380; nf.Q.value=0.5;
+      var ng = AC.createGain(); ng.gain.value=0.045;
+      var nl = AC.createOscillator(); nl.frequency.value=0.05;
+      var nlg = AC.createGain(); nlg.gain.value=0.028;
+      nl.connect(nlg); nlg.connect(ng.gain); nl.start();
+      ns.connect(nf); nf.connect(ng); ng.connect(master); ns.start();
+      // 心跳
+      (function thump(){
+        if(!AC) return;
+        var t = AC.currentTime;
+        var o = AC.createOscillator(); o.type='sine';
+        o.frequency.setValueAtTime(58,t); o.frequency.exponentialRampToValueAtTime(36,t+0.28);
+        var g = AC.createGain();
+        g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.65,t+0.025);
+        g.gain.exponentialRampToValueAtTime(0.0001,t+0.65);
+        o.connect(g); g.connect(master); o.start(t); o.stop(t+0.75);
+        setTimeout(thump, 2400+Math.random()*900);
+      })();
+      // 远钟
+      function bell(){
+        if(!AC) return;
+        var t = AC.currentTime;
+        [[196,0.15],[392.7,0.07],[587.3,0.045]].forEach(function(cfg){
+          var o = AC.createOscillator(); o.type='sine';
+          o.frequency.value = cfg[0]*(1+(Math.random()-0.5)*0.004);
+          var g = AC.createGain();
+          g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(cfg[1],t+0.04);
+          g.gain.exponentialRampToValueAtTime(0.0001,t+8);
+          o.connect(g); g.connect(master); o.start(t); o.stop(t+8.5);
+        });
+        setTimeout(bell, 21000+Math.random()*15000);
+      }
+      setTimeout(bell, 7000);
+    }catch(e){ AC = null; }
+  }
+  var muteBtn = document.getElementById('mute');
+  muteBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    if(!AC) return;
+    muted = !muted;
+    muteBtn.classList.toggle('off', muted);
+    master.gain.cancelScheduledValues(AC.currentTime);
+    master.gain.linearRampToValueAtTime(muted ? 0 : 0.5, AC.currentTime + 0.8);
+  });
+
+  /* ---------- 入场 ---------- */
+  var gate = document.getElementById('gate');
+  gate.addEventListener('click', function(){
+    gate.classList.add('hide');
+    document.body.classList.add('entered');
+    startAudio();
+    setTimeout(function(){ gate.remove(); }, 2000);
+  });
 })();
 </script>
 </body>

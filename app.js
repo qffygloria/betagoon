@@ -176,6 +176,7 @@ function route(){
   const root = $('#view'); if(!root) return;
   document.body.classList.remove('in-app');
   if(diagTimer && h !== '#/app/diagnostics'){ clearInterval(diagTimer); diagTimer = null; }
+  if(heroTimer && h.indexOf('#/')===0 && h !== '#/'){ clearInterval(heroTimer); heroTimer = null; }
   if(h === '#/' || h === '#'){ window.scrollTo(0,0); renderMarketingHome(root); return; }
   if(h === '#/demo'){ window.scrollTo(0,0); renderDemo(root); return; }
   if(h === '#/docs'){ window.scrollTo(0,0); renderDocs(root); return; }
@@ -194,7 +195,7 @@ window.addEventListener('hashchange', route);
 /* ---------------- Marketing chrome ---------------- */
 function marketingNav(){
   return '<nav class="mnav"><a class="logo" href="#/"><span class="mark"></span>HOTSCREEN&nbsp;V2</a>'+
-  '<div class="links"><a href="#features">Features</a><a href="#technology">Technology</a>'+
+  '<div class="links"><a href="#features">Features</a><a href="#architecture">Architecture</a>'+
   '<a href="#roadmap">Roadmap</a><a href="#/docs">Docs</a></div>'+
   '<div class="cta-row"><a class="btn btn-ghost btn-sm" href="#/demo">Launch Demo</a>'+
   '<a class="btn btn-primary btn-sm" href="#/app/dashboard">Control Center</a></div></nav>';
@@ -202,7 +203,7 @@ function marketingNav(){
 function marketingFoot(){
   return '<footer class="mfooter"><div class="cols">'+
   '<div style="max-width:320px"><a class="logo" href="#/" style="margin-bottom:12px"><span class="mark"></span>HOTSCREEN&nbsp;V2</a>'+
-  '<p style="margin-top:10px">Next-generation screen interaction system. Demo build — all values simulated.</p></div>'+
+  '<p style="margin-top:10px">A personal, non-commercial software engineering project — interactive demo and mock control center.</p></div>'+
   '<div><div class="mono muted" style="font-size:11px;letter-spacing:.2em;margin-bottom:10px">PRODUCT</div>'+
   '<div><a href="#features">Features</a></div><div><a href="#/demo">Demo</a></div><div><a href="#/app/dashboard">Control Center</a></div></div>'+
   '<div><div class="mono muted" style="font-size:11px;letter-spacing:.2em;margin-bottom:10px">RESOURCES</div>'+
@@ -210,7 +211,7 @@ function marketingFoot(){
   '<div><div class="mono muted" style="font-size:11px;letter-spacing:.2em;margin-bottom:10px">STATUS</div>'+
   '<div><span class="badge badge-demo"><span class="dot"></span>Demo mode</span></div>'+
   '<div style="margin-top:8px"><span class="badge">Coming soon</span></div></div>'+
-  '</div><div class="base"><span>HOTSCREEN V2 — demo website. No downloads available yet.</span>'+
+  '</div><div class="base"><span>HOTSCREEN V2 — personal non-commercial engineering demo. No downloads available yet.</span>'+
   '<span>v2.0.0-demo · static build</span></div></footer>';
 }
 
@@ -225,10 +226,13 @@ function renderMarketingHome(root){
     '<div class="cta-row"><a class="btn btn-primary" href="#features">Explore Features</a>'+
     '<a class="btn btn-ghost" href="#/demo">Launch Demo</a></div>'+
     '<div class="meta"><span class="badge badge-demo"><span class="dot"></span>Demo mode</span>'+
+    '<span class="badge">Personal project · Non-commercial</span>'+
     '<span class="badge">No download yet — coming soon</span></div>'+
   '</div>'+
   '<div class="console hud-corner"><div class="cbar"><i></i><i></i><i></i><span class="t">hotscreen://console — demo</span></div>'+
-  '<div class="cbody"><div class="scanwrap"><div class="grid"></div><div class="beam"></div>'+
+  '<div class="cbody"><div class="statusline"><span class="pulse"></span><span id="heroStatus">pipeline nominal</span><span class="sp"></span><span id="heroLvl">LV 4</span></div>'+
+  '<div class="lvlbar"><i id="heroBar" style="width:40%"></i></div>'+
+  '<div class="scanwrap"><div class="grid"></div><div class="beam"></div>'+
     '<div class="zone" style="left:12%;top:18%">TORSO · FILTERED</div>'+
     '<div class="zone" style="left:58%;top:55%">HAND · MONITORED</div></div>'+
   '<div class="kv"><span class="k">global_level</span><span class="v">4 <span class="ok">● stable</span></span></div>'+
@@ -254,6 +258,15 @@ function renderMarketingHome(root){
     '<div class="fstep"><div class="n">03</div><h4>Policy</h4><p>Contracts &amp; level gate the run.</p></div><div class="farrow">→</div>'+
     '<div class="fstep"><div class="n">04</div><h4>Effect</h4><p>Stack composed in order.</p></div><div class="farrow">→</div>'+
     '<div class="fstep"><div class="n">05</div><h4>Renderer</h4><p>Frame composited &amp; shown.</p></div>'+
+  '</div></section>'+
+
+  '<section class="msection" id="architecture"><div class="kick">Architecture</div><h2>Client-side by design.</h2>'+
+  '<p class="lede">Hotscreen V2 is a personal, non-commercial software engineering project. This demo runs entirely in your browser — no backend, no accounts, no telemetry, no network calls.</p>'+
+  '<div class="cards">'+
+    '<div class="card"><div class="ic">UI</div><h3>SPA Shell</h3><p>Hash-routed single-page app. Brand site, interactive demo and control center share one design system and one codebase.</p></div>'+
+    '<div class="card"><div class="ic">PL</div><h3>Policy Engine</h3><p>Evaluates level, contracts and leases before any effect runs. <span class="muted">Simulated with fixed mock rules in this build.</span></p></div>'+
+    '<div class="card"><div class="ic">FX</div><h3>Effect Stack</h3><p>Ordered, reorderable filter pipeline rendered on canvas. Stack order changes the output — try it in the studio.</p></div>'+
+    '<div class="card"><div class="ic">DT</div><h3>Mock Data Provider</h3><p>Every number on this site is labeled demo data. A future runtime adapter would plug in here — none exists yet, and none is claimed.</p></div>'+
   '</div></section>'+
 
   '<section class="msection"><div class="kick">Effect Showcase</div><h2>Try a filter, live.</h2>'+
@@ -303,6 +316,20 @@ function renderMarketingHome(root){
   '<details class="faq"><summary>What platforms will it run on?</summary><div class="a">Undecided. A native desktop build is on the roadmap as a planned item, not a promise.</div></details>'+
   '</div></section>'+marketingFoot();
   initMiniShowcase();
+  initHeroConsole();
+}
+function initHeroConsole(){
+  const st = $('#heroStatus'), bar = $('#heroBar'); if(!st) return;
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const msgs = ['pipeline nominal','detection: 8 zones mapped','policy: pack v2 active','renderer: compositor ok','compliance: 92 / 100'];
+  let i = 0;
+  if(heroTimer) clearInterval(heroTimer);
+  heroTimer = setInterval(()=>{
+    i = (i+1) % msgs.length;
+    st.style.opacity = '0';
+    setTimeout(()=>{ st.textContent = msgs[i]; st.style.opacity = '1'; }, 300);
+    if(bar) bar.style.width = (36 + Math.round(Math.random()*10)) + '%';
+  }, 2800);
 }
 function initMiniShowcase(){
   const src = $('#miniSrc'), dst = $('#miniDst'); if(!src||!dst) return;
@@ -325,14 +352,41 @@ function initMiniShowcase(){
 /* ---------------- Marketing: Docs ---------------- */
 function renderDocs(root){
   root.innerHTML = marketingNav() +
-  '<section class="msection" style="padding-top:130px"><div class="kick">Documentation</div>'+
+  '<section class="msection" style="padding-top:110px;max-width:900px"><div class="kick">Technical Documentation</div>'+
   '<h2>Docs <span class="badge badge-demo" style="vertical-align:middle">Early draft</span></h2>'+
-  '<p class="lede">The honest state of documentation for a product still in demo.</p>'+
-  '<div class="cards">'+
-  '<div class="card"><div class="ic">A</div><h3>Concepts</h3><p>Zones, stages, the single Global Level, and how policy gates effects. <span class="muted">Draft in progress.</span></p></div>'+
-  '<div class="card"><div class="ic">B</div><h3>Effects reference</h3><p>Pixelate, Blur, Solid Cover, Scanlines — parameters and stacking order. <span class="muted">Covered in the demo.</span></p></div>'+
-  '<div class="card"><div class="ic">C</div><h3>Runtime adapter</h3><p>How a future live adapter would plug in. <span class="muted">Not started — no API to document yet.</span></p></div>'+
-  '</div><div class="mt16"><a class="btn btn-ghost btn-sm" href="#/">← Back to site</a></div></section>'+marketingFoot();
+  '<p class="lede">Engineering notes for a personal, non-commercial demo project. Honest about what exists and what does not.</p>'+
+
+  '<div class="panel"><h3>1 · System architecture</h3><p class="psub">Everything below runs client-side in a single static build.</p>'+
+  '<div class="flow">'+
+  '<div class="fstep"><div class="n">A</div><h4>SPA Shell</h4><p>Hash router, marketing + app views.</p></div><div class="farrow">→</div>'+
+  '<div class="fstep"><div class="n">B</div><h4>Policy Engine</h4><p>Mock rules over level &amp; leases.</p></div><div class="farrow">→</div>'+
+  '<div class="fstep"><div class="n">C</div><h4>Effect Stack</h4><p>Ordered canvas filter pipeline.</p></div><div class="farrow">→</div>'+
+  '<div class="fstep"><div class="n">D</div><h4>Renderer</h4><p>Canvas 2D compositing.</p></div>'+
+  '</div><p class="muted mt16" style="font-size:13px">There is no server component. A future <span class="mono">RuntimeAdapter</span> interface is reserved in the design for live capture input — it is not implemented and not documented beyond this paragraph.</p></div>'+
+
+  '<div class="panel"><h3>2 · Data model</h3><p class="psub">Neutral zone semantics. No other body-part vocabulary is used anywhere on this site.</p>'+
+  '<table class="tbl"><tr><th>Concept</th><th>Values</th><th>Notes</th></tr>'+
+  '<tr><td class="mono">Zone</td><td>HEAD · TORSO · ARM · HAND · LEG</td><td>Neutral regions on an abstract mannequin</td></tr>'+
+  '<tr><td class="mono">Exposure</td><td>Clear · Monitored · Filtered</td><td>Per-zone policy state</td></tr>'+
+  '<tr><td class="mono">Effective Stage</td><td>0 – 6</td><td>Per-zone intensity, feeds XP</td></tr>'+
+  '<tr><td class="mono">Global Level</td><td>0 – 10</td><td>Single system-wide progression</td></tr>'+
+  '</table></div>'+
+
+  '<div class="panel"><h3>3 · Effect stack spec</h3><p class="psub">Filters apply top-to-bottom; reordering changes the output.</p>'+
+  '<table class="tbl"><tr><th>Filter</th><th>Parameters</th><th>Demo status</th></tr>'+
+  '<tr><td>Pixelate</td><td class="mono">size 2–40</td><td><span class="badge badge-live">Working</span></td></tr>'+
+  '<tr><td>Blur</td><td class="mono">radius 1–24</td><td><span class="badge badge-live">Working</span></td></tr>'+
+  '<tr><td>Solid Cover</td><td class="mono">opacity 10–100%</td><td><span class="badge badge-live">Working</span></td></tr>'+
+  '<tr><td>Scanlines</td><td class="mono">opacity 5–60%</td><td><span class="badge badge-live">Working</span></td></tr>'+
+  '</table></div>'+
+
+  '<div class="panel"><h3>4 · Demo-mode guarantees</h3>'+
+  '<div class="trow"><div class="tl">No camera or screen capture<small>The demo paints generated neutral patterns only</small></div><span class="badge badge-live">Guaranteed</span></div>'+
+  '<div class="trow"><div class="tl">No network calls<small>Open devtools — this page makes none of its own</small></div><span class="badge badge-live">Guaranteed</span></div>'+
+  '<div class="trow"><div class="tl">No real economy<small>Credits, XP and contracts are in-memory mock data</small></div><span class="badge badge-live">Guaranteed</span></div>'+
+  '<div class="trow"><div class="tl">No download shipped<small>“Coming soon” means exactly that</small></div><span class="badge badge-demo">Honest</span></div></div>'+
+
+  '<div class="mt16"><a class="btn btn-ghost btn-sm" href="#/">← Back to site</a></div></section>'+marketingFoot();
 }
 
 /* ---------------- Interactive Demo ---------------- */
@@ -460,53 +514,67 @@ APP_RENDER.dashboard = function(ws){
     '<div class="stat"><div class="k">'+z.name+'</div><div class="v" style="font-size:18px">'+(z.vis?'<span style="color:var(--green)">●</span>':'<span style="color:var(--muted)">○</span>')+' <small>'+z.exposure+'</small></div><div class="d">Stage '+z.stage+' · '+z.effect+'</div></div>').join('')+'</div>'+
     '<div class="mt16"><a class="btn btn-ghost btn-sm" href="#/app/body-parts">Open zone editor</a></div></div>'+
   '<div class="panel"><h3>Recent Events</h3><p class="psub">Latest pipeline events (demo).</p>'+
-    DB.events.map(e=>'<div class="trow"><div class="tl"><span class="mono muted" style="font-size:11px;margin-right:10px">'+e.t+'</span>'+esc(e.msg)+'</div></div>').join('')+'</div>';
+    DB.events.map(e=>'<div class="event '+e.cls+'"><span class="ets mono">'+e.t+'</span><span>'+esc(e.msg)+'</span></div>').join('')+'</div>';
 };
 
 /* ---------------- App: Body Parts ---------------- */
 let selZone = 'torso';
 APP_RENDER['body-parts'] = function(ws){
+  const EXPCLS = { Clear:'z-clear', Monitored:'z-monitored', Filtered:'z-filtered' };
   const Z = {
-    head:  {x:'circle', cx:100, cy:34, r:22, lx:100, ly:8},
-    torso: {x:'rect', x0:74, y0:64, w:52, h:104, rx:16, lx:100, ly:60},
-    l_arm: {x:'rect', x0:42, y0:72, w:20, h:96, rx:10, lx:52, ly:66},
-    r_arm: {x:'rect', x0:138, y0:72, w:20, h:96, rx:10, lx:148, ly:66},
-    l_hand:{x:'circle', cx:52, cy:182, r:11, lx:52, ly:204},
-    r_hand:{x:'circle', cx:148, cy:182, r:11, lx:148, ly:204},
-    l_leg: {x:'rect', x0:76, y0:184, w:20, h:118, rx:10, lx:86, ly:316},
-    r_leg: {x:'rect', x0:104, y0:184, w:20, h:118, rx:10, lx:114, ly:316},
+    head:  {x:'circle', cx:110, cy:30, r:18, lx:110, ly:10,  anchor:'middle'},
+    torso: {x:'rect', x0:84, y0:56, w:52, h:92, rx:15, lx:110, ly:106, anchor:'middle'},
+    l_arm: {x:'rect', x0:52, y0:62, w:20, h:84, rx:10, lx:48, ly:108, anchor:'end'},
+    r_arm: {x:'rect', x0:148, y0:62, w:20, h:84, rx:10, lx:172, ly:108, anchor:'start'},
+    l_hand:{x:'circle', cx:62, cy:168, r:10, lx:62, ly:190, anchor:'middle'},
+    r_hand:{x:'circle', cx:158, cy:168, r:10, lx:158, ly:190, anchor:'middle'},
+    l_leg: {x:'rect', x0:78, y0:196, w:22, h:104, rx:10, lx:74, ly:252, anchor:'end'},
+    r_leg: {x:'rect', x0:120, y0:196, w:22, h:104, rx:10, lx:146, ly:252, anchor:'start'},
+  };
+  const selectZone = id => {
+    selZone = id;
+    $$('.zone', ws).forEach(x=>x.classList.toggle('sel', x.dataset.z===id));
+    $('#zPanel').innerHTML = zonePanel(DB.zones.find(q=>q.id===id));
+    bindZonePanel();
   };
   let shapes = '';
   Object.keys(Z).forEach(id=>{
     const z = DB.zones.find(q=>q.id===id), s = Z[id];
+    const cls = 'zone '+EXPCLS[z.exposure]+(id===selZone?' sel':'');
+    const attrs = 'data-z="'+id+'" tabindex="0" role="button" aria-label="'+z.name+' zone, '+z.exposure+'"';
     const el = s.x==='circle'
-      ? '<circle class="zone'+(id===selZone?' sel':'')+'" data-z="'+id+'" cx="'+s.cx+'" cy="'+s.cy+'" r="'+s.r+'"/>'
-      : '<rect class="zone'+(id===selZone?' sel':'')+'" data-z="'+id+'" x="'+s.x0+'" y="'+s.y0+'" width="'+s.w+'" height="'+s.h+'" rx="'+s.rx+'"/>';
-    shapes += el + '<text class="zlabel" x="'+s.lx+'" y="'+s.ly+'">'+z.name+'</text>';
+      ? '<circle class="'+cls+'" '+attrs+' cx="'+s.cx+'" cy="'+s.cy+'" r="'+s.r+'"/>'
+      : '<rect class="'+cls+'" '+attrs+' x="'+s.x0+'" y="'+s.y0+'" width="'+s.w+'" height="'+s.h+'" rx="'+s.rx+'"/>';
+    shapes += el + '<text class="zlabel" x="'+s.lx+'" y="'+s.ly+'" text-anchor="'+s.anchor+'">'+z.name+'</text>';
   });
   const z = DB.zones.find(q=>q.id===selZone);
   ws.innerHTML = pageHead('Body Parts','Select a neutral zone to inspect and edit its policy. Demo data only.',
     '<span class="badge badge-demo"><span class="dot"></span>Demo data</span>')+
-  '<div class="bodywrap"><div class="bodysvg"><svg viewBox="0 0 200 330">'+shapes+'</svg>'+
-  '<p class="muted mono center" style="font-size:11px;margin-top:10px">NEUTRAL MANNEQUIN · CLICK A ZONE</p></div>'+
+  '<div class="bodywrap"><div class="bodysvg"><svg viewBox="0 0 224 330" role="group" aria-label="Neutral body zone diagram">'+shapes+'</svg>'+
+  '<p class="muted mono center" style="font-size:11px;margin-top:10px">NEUTRAL MANNEQUIN · CLICK OR TAB + ENTER</p>'+
+  '<div class="flex gap8 wrap mt16" style="justify-content:center">'+
+  '<span class="badge badge-live">Clear</span><span class="badge badge-demo">Monitored</span><span class="badge badge-cyan">Filtered</span></div></div>'+
   '<div class="panel" id="zPanel" style="margin-bottom:0">'+zonePanel(z)+'</div></div>';
-  $$('.zone', ws).forEach(el=>el.onclick=()=>{
-    selZone = el.dataset.z;
-    $$('.zone', ws).forEach(x=>x.classList.remove('sel')); el.classList.add('sel');
-    $('#zPanel').innerHTML = zonePanel(DB.zones.find(q=>q.id===selZone));
-    bindZonePanel();
+  $$('.zone', ws).forEach(el=>{
+    el.addEventListener('click', ()=>selectZone(el.dataset.z));
+    el.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectZone(el.dataset.z); } });
   });
   bindZonePanel();
   function bindZonePanel(){
     const zz = DB.zones.find(q=>q.id===selZone);
     const vis = $('#zVis'); if(vis) vis.onclick = ()=>{ zz.vis=!zz.vis; vis.classList.toggle('on',zz.vis); toast(zz.name+' visibility '+(zz.vis?'on':'off')+' (demo)'); };
     const st = $('#zStage'); if(st) st.oninput = ()=>{ zz.stage=+st.value; $('#zStageOut').textContent=zz.stage; };
-    const ex = $('#zExp'); if(ex) ex.onchange = ()=>{ zz.exposure=ex.value; toast(zz.name+' exposure → '+ex.value+' (demo)'); };
+    const ex = $('#zExp'); if(ex) ex.onchange = ()=>{ zz.exposure=ex.value;
+      const shape = $('.zone[data-z="'+zz.id+'"]', ws);
+      if(shape){ shape.classList.remove('z-clear','z-monitored','z-filtered'); shape.classList.add(EXPCLS[zz.exposure]);
+        shape.setAttribute('aria-label', zz.name+' zone, '+zz.exposure); }
+      toast(zz.name+' exposure → '+ex.value+' (demo)'); };
     const ef = $('#zFx'); if(ef) ef.onchange = ()=>{ zz.effect=ef.value; toast(zz.name+' effect → '+ef.value+' (demo)'); };
   }
 };
 function zonePanel(z){
-  return '<h3>'+z.name+' <span class="badge '+(z.vis?'badge-live':'')+'" style="margin-left:8px">'+(z.vis?'visible':'hidden')+'</span></h3>'+
+  return '<h3>'+z.name+' <span class="badge '+(z.vis?'badge-live':'')+'" style="margin-left:8px">'+(z.vis?'visible':'hidden')+'</span>'+
+  ' <span class="badge '+(z.exposure==='Clear'?'badge-live':z.exposure==='Monitored'?'badge-demo':'badge-cyan')+'">'+z.exposure+'</span></h3>'+
   '<p class="psub">Zone policy — changes apply to the demo session.</p>'+
   '<div class="trow"><div class="tl">Visibility<small>Whether the zone is tracked</small></div><div class="toggle'+(z.vis?' on':'')+'" id="zVis"></div></div>'+
   '<div class="trow"><div class="tl">Exposure state<small>Clear / Monitored / Filtered</small></div>'+
@@ -531,19 +599,27 @@ const FX_LIB = [
 APP_RENDER.effects = function(ws){
   ws.innerHTML = pageHead('Effects Studio','Compose the filter stack. Drag to reorder — order changes the output.',
     '<span class="badge badge-demo"><span class="dot"></span>Demo data</span>')+
-  '<div class="grid2"><div><div class="panel"><h3>Effect Stack</h3><p class="psub">Top runs first. Drag handles to reorder.</p>'+
-    '<div class="stack" id="fxStack"></div>'+
-    '<div class="flex gap8 mt16"><button class="btn btn-ghost btn-sm" id="fxReset">Reset stack</button>'+
-    '<button class="btn btn-ghost btn-sm" id="fxPreset">Load preset “Soft Veil”</button></div></div>'+
-  '<div class="panel"><h3>Filter Library</h3><p class="psub">Add filters to the stack.</p><div id="fxLib"></div></div></div>'+
   '<div class="panel"><h3>Live Preview <span class="badge badge-demo" style="margin-left:8px">neutral pattern</span></h3>'+
-  '<p class="psub">Rendered from the current stack, in order.</p>'+
-  '<div class="showcase" style="grid-template-columns:1fr 1fr"><div class="preview-box"><canvas id="eSrc" width="420" height="280" class="hidden"></canvas>'+
-  '<canvas id="eDst" width="420" height="280" style="width:100%;border-radius:8px;background:#0a0f16"></canvas>'+
-  '<p class="mono muted" style="font-size:11px;margin-top:8px">OUTPUT · STACK ORDER APPLIED</p></div>'+
-  '<div><div id="fxParams"></div></div></div></div>';
+  '<p class="psub">Before / after — rendered from the current stack, top to bottom.</p>'+
+  '<div class="compare">'+
+  '<figure><canvas id="eSrc" width="560" height="360" class="hidden"></canvas><canvas id="eBefore" width="560" height="360"></canvas><figcaption>BEFORE · SOURCE PATTERN</figcaption></figure>'+
+  '<figure><canvas id="eDst" width="560" height="360"></canvas><figcaption id="eAfterCap">AFTER · STACK OUTPUT</figcaption></figure>'+
+  '</div></div>'+
+  '<div class="grid3">'+
+  '<div class="panel"><h3>Effect Stack</h3><p class="psub">Top runs first. Drag the ⋮⋮ handle to reorder.</p>'+
+    '<div class="stack" id="fxStack"></div>'+
+    '<div class="flex gap8 mt16 wrap"><button class="btn btn-ghost btn-sm" id="fxReset">Reset stack</button>'+
+    '<button class="btn btn-ghost btn-sm" id="fxPreset">Load preset “Soft Veil”</button></div></div>'+
+  '<div class="panel"><h3>Filter Library</h3><p class="psub">Add filters to the stack.</p><div id="fxLib"></div></div>'+
+  '<div class="panel"><h3>Parameters</h3><p class="psub">Per-filter controls, in stack order.</p><div id="fxParams"></div></div>'+
+  '</div>';
   const src=$('#eSrc'); paintPattern(src.getContext('2d'), src.width, src.height, 0);
-  const draw=()=>renderStack(src, $('#eDst'), DB.stack);
+  const draw=()=>{
+    $('#eBefore').getContext('2d').drawImage(src,0,0);
+    renderStack(src, $('#eDst'), DB.stack);
+    const names = DB.stack.filter(f=>f.on).map(f=>f.name).join(' → ') || 'no active filters';
+    $('#eAfterCap').textContent = 'AFTER · ' + names.toUpperCase();
+  };
   const renderList=()=>{
     $('#fxStack').innerHTML = DB.stack.map((f,i)=>
       '<div class="fxitem" draggable="true" data-id="'+f.id+'"><span class="grip">⋮⋮</span>'+
@@ -574,14 +650,15 @@ APP_RENDER.effects = function(ws){
     draw();
   };
   const renderParams=()=>{
-    $('#fxParams').innerHTML = DB.stack.map(f=>{
+    $('#fxParams').innerHTML = DB.stack.map((f,i)=>{
       const lib=FX_LIB.find(l=>l.name===f.name); if(!lib) return '';
-      return Object.keys(lib.params).map(pk=>{
+      const fields = Object.keys(lib.params).map(pk=>{
         const p=lib.params[pk];
-        return '<div class="field"><label>'+esc(f.name).toUpperCase()+' · '+esc(p.label)+'</label>'+
+        return '<div class="field"><label>'+esc(p.label)+'</label>'+
         '<div class="row"><input type="range" min="'+p.min+'" max="'+p.max+'" value="'+f.params[pk]+'" data-f="'+f.id+'" data-p="'+pk+'" style="flex:1">'+
         '<output>'+f.params[pk]+'</output></div></div>';
       }).join('');
+      return '<div class="pgroup"><div class="pgname">'+(i+1)+' · '+esc(f.name).toUpperCase()+(f.on?'':' · OFF')+'</div>'+fields+'</div>';
     }).join('') || '<p class="muted">No parameters — stack is empty.</p>';
     $$('#fxParams input[type=range]').forEach(r=>r.oninput=()=>{
       const f=DB.stack.find(x=>x.id===r.dataset.f); f.params[r.dataset.p]=+r.value;
@@ -714,6 +791,7 @@ APP_RENDER.profiles = function(ws){
 
 /* ---------------- App: Diagnostics ---------------- */
 let diagTimer = null;
+let heroTimer = null;
 APP_RENDER.diagnostics = function(ws){
   ws.innerHTML = pageHead('Diagnostics','Runtime checks and the event log. Simulated entries.',
     '<span class="badge badge-demo"><span class="dot"></span>Demo data</span>'+

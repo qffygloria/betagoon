@@ -81,8 +81,17 @@
 </div>
 <script>
 (function(){
-  // Language: same rule as the main app (browser zh -> zh-CN, else en)
-  var lang = (navigator.language || 'en').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en';
+  // Language: prefer the main site's stored preference (hs2_lang),
+  // fall back to browser language. Same rule as the main app.
+  var lang = 'en';
+  try {
+    var stored = localStorage.getItem('hs2_lang');
+    if (stored && stored.toLowerCase().indexOf('zh') === 0) lang = 'zh';
+    else if (stored) lang = 'en';
+    else if ((navigator.language || 'en').toLowerCase().indexOf('zh') === 0) lang = 'zh';
+  } catch (e) {
+    if ((navigator.language || 'en').toLowerCase().indexOf('zh') === 0) lang = 'zh';
+  }
   document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
   var T = {
     en: { msg: 'This address does not exist on this station.', home: 'Return Home', dash: 'Open Control Center' },
@@ -96,7 +105,7 @@
   // Site root: works both under /betagoon/ (GitHub Pages project site)
   // and at domain root (future custom domain). No redirect of the 404 itself.
   var root = '/';
-  if (location.hostname.slice(-10) === 'github.io' &&
+  if (location.hostname.endsWith('.github.io') &&
       location.pathname.indexOf('/betagoon/') === 0) {
     root = '/betagoon/';
   }

@@ -4,35 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex,nofollow">
-<title>&gt; 跪下</title>
+<title>♛ 跪下。</title>
 <style>
   *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{ height:100%; }
   body{
-    background:#000; color:#ffdfe6; overflow:hidden;
-    font-family:ui-monospace,Menlo,Consolas,"Noto Sans SC",monospace;
+    background:#000; color:#e8ddc0; overflow:hidden;
+    font-family:"Noto Serif SC","Songti SC",serif;
     -webkit-user-select:none; user-select:none; cursor:crosshair;
   }
-  /* 背景 + 故障切片 */
+  /* 背景 */
   .bg{ position:fixed; inset:-4%; z-index:0;
     background:url('queen.jpg') center/cover no-repeat;
-    animation:throne 70s ease-in-out infinite alternate, flick 7s infinite;
-    will-change:transform; }
+    animation:throne 70s ease-in-out infinite alternate; will-change:transform; }
   @keyframes throne{ from{ transform:scale(1); } to{ transform:scale(1.1); } }
-  @keyframes flick{ 0%,100%{ opacity:1; } 92%{ opacity:1; } 93%{ opacity:.84; }
-    94%{ opacity:1; } 96.5%{ opacity:.93; } 97.5%{ opacity:1; } }
-  .bg::before,.bg::after{ content:""; position:absolute; inset:0;
-    background:url('queen.jpg') center/cover no-repeat; opacity:0; pointer-events:none; }
-  body.glitch .bg::before{ opacity:.85; transform:translate(-10px,2px);
-    clip-path:inset(18% 0 62% 0); filter:sepia(1) saturate(5) hue-rotate(-55deg); }
-  body.glitch .bg::after{ opacity:.85; transform:translate(10px,-2px);
-    clip-path:inset(64% 0 12% 0); filter:sepia(1) saturate(5) hue-rotate(145deg); }
-  /* 扫描线 */
-  .scan{ position:fixed; inset:0; z-index:5; pointer-events:none; opacity:.45;
-    background:repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0 1px, transparent 1px 3px); }
   /* 雾 */
   .fog{ position:fixed; width:150vw; height:46vh; left:-25vw; top:8vh; z-index:1; pointer-events:none;
-    background:radial-gradient(ellipse at center, rgba(255,40,70,.09), transparent 70%);
+    background:radial-gradient(ellipse at center, rgba(255,120,60,.07), transparent 70%);
     filter:blur(34px); animation:fogmove 26s ease-in-out infinite alternate; }
   .fog.f2{ top:58vh; animation-duration:37s; animation-delay:-14s; opacity:.75; }
   @keyframes fogmove{ from{ transform:translateX(-6%); } to{ transform:translateX(6%); } }
@@ -49,50 +37,58 @@
     0%{ transform:translate(0,0); } 25%{ transform:translate(-34px,22px); }
     50%{ transform:translate(24px,-28px); } 75%{ transform:translate(-18px,-12px); }
     100%{ transform:translate(0,0); } }
-  /* 王冠 */
-  .crown{ position:fixed; top:34px; left:50%; transform:translateX(-50%); z-index:30;
-    opacity:0; transition:opacity 7s ease; filter:drop-shadow(0 0 10px rgba(255,22,59,.7)); }
-  body.entered .crown{ opacity:.9; transition-delay:2.5s; }
-  /* 终端命令 */
-  .term{ position:fixed; left:50%; bottom:10vh; transform:translateX(-50%); z-index:30;
-    text-align:center; opacity:0; transition:opacity 6s ease; }
-  body.entered .term{ opacity:1; transition-delay:5s; }
-  .term .cmd{ font-size:clamp(26px,4.2vw,52px); color:#ff163b; letter-spacing:.3em; text-indent:.3em;
-    text-shadow:0 0 16px rgba(255,22,59,.7), 0 0 64px rgba(255,22,59,.35); white-space:nowrap; }
-  .cursor{ display:inline-block; width:.58em; height:1em; background:#ff163b; vertical-align:-.12em;
-    margin-left:.25em; box-shadow:0 0 14px rgba(255,22,59,.85);
-    animation:blink 1.06s steps(1) infinite; }
-  @keyframes blink{ 50%{ opacity:0; } }
-  .term .sub{ margin-top:20px; font-size:11px; letter-spacing:.55em; text-indent:.55em;
-    color:rgba(255,130,155,.6); }
-  .term .sub b{ color:#ff5c7a; font-weight:400; }
+  /* 跑马灯 */
+  .marquee{ position:fixed; left:0; right:0; z-index:30; overflow:hidden; white-space:nowrap;
+    padding:13px 0; border-top:1px solid rgba(201,162,39,.16); border-bottom:1px solid rgba(201,162,39,.16);
+    background:rgba(0,0,0,.5); opacity:0; transition:opacity 5s ease; }
+  body.entered .marquee{ opacity:1; transition-delay:2s; }
+  .marquee.top{ top:0; }
+  .marquee.bottom{ bottom:0; }
+  .marquee .track{ display:inline-block; padding-right:0;
+    font-size:12px; letter-spacing:.5em; color:rgba(201,162,39,.75);
+    font-family:ui-monospace,Menlo,Consolas,sans-serif; }
+  .marquee.top .track{ animation:mq 32s linear infinite; }
+  .marquee.bottom .track{ animation:mqr 40s linear infinite; }
+  .marquee .track .dia{ color:rgba(201,162,39,.4); }
+  @keyframes mq{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
+  @keyframes mqr{ from{ transform:translateX(-50%); } to{ transform:translateX(0); } }
+  /* 帝国诏令 */
+  .imperial{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:30;
+    text-align:center; opacity:0; transition:opacity 8s ease; }
+  body.entered .imperial{ opacity:1; transition-delay:4.5s; }
+  .imperial .mark{ font-size:30px; color:#c9a227; margin-bottom:26px;
+    text-shadow:0 0 22px rgba(201,162,39,.8); }
+  .imperial .word{ font-size:clamp(46px,7.5vw,100px); font-weight:200; letter-spacing:.45em;
+    text-indent:.45em; white-space:nowrap; color:#efe3c2;
+    text-shadow:0 0 34px rgba(201,162,39,.35), 0 4px 30px rgba(0,0,0,.8); }
   /* 视线 */
   #spot{ position:fixed; left:0; top:0; width:560px; height:560px; margin:-280px 0 0 -280px;
     border-radius:50%; pointer-events:none; z-index:40; opacity:0; transition:opacity 4s ease;
-    background:radial-gradient(circle, rgba(255,70,90,.10), rgba(255,70,90,.03) 42%, transparent 70%); }
+    background:radial-gradient(circle, rgba(255,220,160,.09), rgba(255,220,160,.025) 42%, transparent 70%); }
   body.entered #spot{ opacity:1; transition-delay:1.5s; }
   /* 静音 */
-  #mute{ position:fixed; right:26px; bottom:24px; z-index:50; width:38px; height:38px;
-    border:1px solid rgba(255,22,59,.25); border-radius:50%; background:transparent;
+  #mute{ position:fixed; right:26px; bottom:64px; z-index:50; width:38px; height:38px;
+    border:1px solid rgba(201,162,39,.28); border-radius:50%; background:transparent;
     cursor:pointer; opacity:0; transition:opacity 4s ease, border-color .3s;
     display:flex; align-items:center; justify-content:center; }
   body.entered #mute{ opacity:.6; transition-delay:3s; }
-  #mute:hover{ opacity:1 !important; border-color:rgba(255,22,59,.8); }
-  #mute svg{ width:16px; height:16px; stroke:#ff8ba0; fill:none; stroke-width:1.6; }
+  #mute:hover{ opacity:1 !important; border-color:rgba(201,162,39,.85); }
+  #mute svg{ width:16px; height:16px; stroke:#d8c58f; fill:none; stroke-width:1.6; }
   #mute.off svg .waves{ display:none; }
   #mute.off svg .slash{ display:block; }
   #mute svg .slash{ display:none; }
   /* 门 */
   #gate{ position:fixed; inset:0; z-index:100; background:#000; cursor:pointer;
-    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:30px;
     transition:opacity 1.8s ease; }
   #gate.hide{ opacity:0; pointer-events:none; }
-  #gate .prompt{ font-size:44px; color:#ff163b;
-    text-shadow:0 0 20px rgba(255,22,59,.8); animation:breathe 3.2s ease-in-out infinite; }
-  #gate small{ font-size:10px; letter-spacing:.6em; text-indent:.6em; color:#7a2a35; }
+  #gate .q{ font-size:46px; color:#c9a227; text-shadow:0 0 26px rgba(201,162,39,.8);
+    animation:breathe 3.2s ease-in-out infinite; }
+  #gate small{ font-size:10px; letter-spacing:.6em; text-indent:.6em; color:#6b5a33;
+    font-family:ui-monospace,Menlo,Consolas,sans-serif; }
   @keyframes breathe{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
   @media (prefers-reduced-motion: reduce){
-    .bg,.fog,.grain,.cursor,#gate .prompt{ animation:none !important; }
+    .bg,.fog,.grain,.marquee .track,#gate .q{ animation:none !important; }
   }
 </style>
 </head>
@@ -104,19 +100,15 @@
 <canvas id="ash"></canvas>
 <div class="vignette"></div>
 <div class="grain"></div>
-<div class="scan"></div>
 
-<div class="crown">
-  <svg viewBox="0 0 64 42" width="40" height="27">
-    <path d="M8 34 L6 12 L19 23 L32 6 L45 23 L58 12 L56 34 Z" fill="none" stroke="#ff163b" stroke-width="1.6"/>
-    <line x1="10" y1="39" x2="54" y2="39" stroke="#ff163b" stroke-width="1.6"/>
-  </svg>
+<div class="marquee top"><span class="track" id="mqTop"></span></div>
+
+<div class="imperial">
+  <div class="mark">♛</div>
+  <div class="word">跪下。</div>
 </div>
 
-<div class="term">
-  <div class="cmd">&gt; 跪下<span class="cursor"></span></div>
-  <div class="sub">corruption 100% <b>♡</b></div>
-</div>
+<div class="marquee bottom"><span class="track" id="mqBottom"></span></div>
 <div id="spot"></div>
 
 <button id="mute" aria-label="toggle sound">
@@ -128,12 +120,18 @@
 </button>
 
 <div id="gate">
-  <div class="prompt">&gt;<span class="cursor"></span></div>
-  <small>CLICK TO SUBMIT</small>
+  <div class="q">♛</div>
+  <small>ENTER</small>
 </div>
 
 <script>
 (function(){
+  /* ---------- 跑马灯 ---------- */
+  var topWords = 'EMPIRE <span class="dia">◆</span> DEVOTION <span class="dia">◆</span> CONTROL <span class="dia">◆</span> SURRENDER <span class="dia">◆</span> WORSHIP <span class="dia">◆</span> ';
+  var botWords = '<span class="dia">◆</span> 跪下 <span class="dia">◆</span> 臣服 <span class="dia">◆</span> 朝拜 <span class="dia">◆</span> 帝国 <span class="dia">◆</span> ';
+  document.getElementById('mqTop').innerHTML = topWords.repeat(6);
+  document.getElementById('mqBottom').innerHTML = botWords.repeat(6);
+
   /* ---------- 余烬 ---------- */
   var cv = document.getElementById('ash'), cx = cv.getContext('2d');
   var W, H, ps = [];
@@ -174,15 +172,6 @@
     requestAnimationFrame(loop);
   })();
 
-  /* ---------- 故障 ---------- */
-  (function glitchLoop(){
-    setTimeout(function(){
-      document.body.classList.add('glitch');
-      setTimeout(function(){ document.body.classList.remove('glitch'); }, 150+Math.random()*230);
-      glitchLoop();
-    }, 3500+Math.random()*5500);
-  })();
-
   /* ---------- 视线 ---------- */
   var spot = document.getElementById('spot');
   var mx = innerWidth/2, my = innerHeight/2, sx = mx, sy = my;
@@ -221,7 +210,6 @@
       var nlg = AC.createGain(); nlg.gain.value=0.028;
       nl.connect(nlg); nlg.connect(ng.gain); nl.start();
       ns.connect(nf); nf.connect(ng); ng.connect(master); ns.start();
-      /* 数据微光 */
       var sh = AC.createOscillator(); sh.type='sine'; sh.frequency.value=1244;
       var shg = AC.createGain(); shg.gain.value=0.006;
       var sht = AC.createOscillator(); sht.frequency.value=0.11;

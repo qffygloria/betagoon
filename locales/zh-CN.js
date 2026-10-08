@@ -63,7 +63,7 @@ window.HS_LOCALES['zh-CN'] = {
 /* architecture */
 'arch.kick': '架构',
 'arch.title': '为客户端而生。',
-'arch.lede': 'Hotscreen V2 是一个个人非商业软件工程项目。本演示完全在浏览器中运行——无后端、无账号、无遥测、无网络请求。',
+'arch.lede': 'Hotscreen V2 是一个个人非商业软件工程项目。本演示完全在浏览器中运行——无后端、无账号、无遥测。仅有的外部请求是字体等静态资源。',
 'arch.c1t': '单页应用外壳',
 'arch.c1d': '哈希路由单页应用。品牌官网、交互演示与控制中心共用一套设计系统与代码库。',
 'arch.c2t': '策略引擎',
@@ -145,7 +145,7 @@ window.HS_LOCALES['zh-CN'] = {
 'docs.working': '可用',
 'docs.s4t': '4 · 演示模式保证',
 'docs.g1t': '无摄像头或截屏', 'docs.g1d': '演示仅绘制生成的中性图案',
-'docs.g2t': '无网络请求', 'docs.g2d': '打开开发者工具——本页面不发起任何自己的请求',
+'docs.g2t': '无后端与遥测', 'docs.g2d': '无应用服务器、无统计分析。仅有的外部请求是字体等静态资源。',
 'docs.g3t': '无真实经济系统', 'docs.g3d': '积分、经验值与契约均为内存中的模拟数据',
 'docs.g4t': '未发布下载', 'docs.g4d': '“即将推出”就是字面意思',
 'docs.guaranteed': '保证', 'docs.honest': '诚实',

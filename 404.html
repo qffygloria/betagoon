@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>404 — SYNVEIL</title>
+<meta name="description" content="Page not found — SYNVEIL.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#05080e; --bg2:#0a111c; --ink:#e8eef6; --mut:#8b9bb0; --dim:#5c6f86;
+    --cy:#22d3ee; --line:rgba(148,180,220,.14); --card:rgba(16,24,38,.72);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(800px 380px at 50% 22%, rgba(34,211,238,.10), transparent 70%),
+      linear-gradient(165deg, var(--bg) 0%, var(--bg2) 65%, #060b14 100%);
+    color:var(--ink);
+    font-family:'Inter','Noto Sans SC',system-ui,-apple-system,sans-serif;
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;padding:24px;position:relative;overflow:hidden;
+  }
+  body::before{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(34,211,238,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,211,238,.045) 1px, transparent 1px);
+    background-size:52px 52px;
+    mask-image:radial-gradient(640px 320px at 50% 40%, #000 25%, transparent 72%);
+  }
+  .wrap{position:relative;z-index:1;text-align:center;max-width:560px}
+  .mark{width:64px;height:64px;margin:0 auto 22px;filter:drop-shadow(0 0 18px rgba(34,211,238,.4))}
+  .code{
+    font-family:'JetBrains Mono',monospace;font-size:104px;font-weight:700;
+    letter-spacing:.08em;color:#f2f7fc;line-height:1;
+    text-shadow:0 0 42px rgba(34,211,238,.25);
+  }
+  .msg{margin-top:18px;font-size:19px;color:var(--mut);line-height:1.7}
+  .path{
+    margin:18px auto 0;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--dim);
+    border:1px solid var(--line);background:var(--card);border-radius:10px;
+    padding:10px 16px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .btns{margin-top:30px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;text-decoration:none;
+    font-size:15px;font-weight:600;padding:13px 26px;border-radius:12px;
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:linear-gradient(135deg,#22d3ee,#0ea5c9);color:#03141a;box-shadow:0 6px 28px rgba(34,211,238,.28)}
+  .btn-primary:hover{box-shadow:0 8px 34px rgba(34,211,238,.42)}
+  .btn-ghost{border:1px solid var(--line);color:var(--ink);background:rgba(16,24,38,.5)}
+  .btn-ghost:hover{background:rgba(24,34,52,.7)}
+  .foot{margin-top:44px;font-size:12px;letter-spacing:.34em;color:var(--dim);font-weight:500}
+  @media (max-width:480px){ .code{font-size:76px} .msg{font-size:16px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <path d="M6 12.5c4-4.2 16-4.2 20 0" stroke="#22d3ee" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M6 17.5c4-4.2 16-4.2 20 0" stroke="#22d3ee" stroke-width="2.6" stroke-linecap="round" opacity=".6"/>
+    <path d="M6 22.5c4-4.2 16-4.2 20 0" stroke="#22d3ee" stroke-width="2.6" stroke-linecap="round" opacity=".32"/>
+    <circle cx="16" cy="8.5" r="2.3" fill="#22d3ee"/>
+  </svg>
+  <div class="code">404</div>
+  <p class="msg" id="msg"></p>
+  <div class="path" id="path"></div>
+  <div class="btns">
+    <a class="btn btn-primary" id="btnHome" href="./"></a>
+    <a class="btn btn-ghost" id="btnDash" href="./"></a>
+  </div>
+  <div class="foot">SYNVEIL · 序帷</div>
+</div>
+<script>
+(function(){
+  // Language: same rule as the main app (browser zh -> zh-CN, else en)
+  var lang = (navigator.language || 'en').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en';
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  var T = {
+    en: { msg: 'This address does not exist on this station.', home: 'Return Home', dash: 'Open Control Center' },
+    zh: { msg: '这个地址不存在。', home: '返回首页', dash: '进入控制台' }
+  }[lang];
+  document.getElementById('msg').textContent = T.msg;
+  document.getElementById('btnHome').textContent = T.home;
+  document.getElementById('btnDash').textContent = T.dash;
+  document.title = '404 — SYNVEIL';
+
+  // Site root: works both under /betagoon/ (GitHub Pages project site)
+  // and at domain root (future custom domain). No redirect of the 404 itself.
+  var root = '/';
+  if (location.hostname.slice(-10) === 'github.io' &&
+      location.pathname.indexOf('/betagoon/') === 0) {
+    root = '/betagoon/';
+  }
+  document.getElementById('btnHome').href = root + '#/';
+  document.getElementById('btnDash').href = root + '#/app/dashboard';
+
+  // Show the requested path for orientation (escaped, never executed).
+  var p = document.getElementById('path');
+  p.textContent = location.pathname + location.search;
+})();
+</script>
+</body>
+</html>

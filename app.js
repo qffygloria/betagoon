@@ -4,6 +4,14 @@ const $  = (s, r) => (r||document).querySelector(s);
 const $$ = (s, r) => Array.from((r||document).querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+/* SYNVEIL brand mark — minimalist veil motif in the cold-cyan system */
+const SYN_LOGO = '<svg class="synlogo" viewBox="0 0 32 32" fill="none" aria-hidden="true">'
+ +'<path d="M6 12.5c4-4.2 16-4.2 20 0" stroke="#22d3ee" stroke-width="2.6" stroke-linecap="round"/>'
+ +'<path d="M6 17.5c4-4.2 16-4.2 20 0" stroke="#22d3ee" stroke-width="2.6" stroke-linecap="round" opacity=".6"/>'
+ +'<path d="M6 22.5c4-4.2 16-4.2 20 0" stroke="#22d3ee" stroke-width="2.6" stroke-linecap="round" opacity=".32"/>'
+ +'<circle cx="16" cy="8.5" r="2.3" fill="#22d3ee"/></svg>';
+const brandLogo = (href) => '<a class="logo" href="'+(href||'#/')+'">'+SYN_LOGO+'<span class="bname">'+t('brand.name')+'</span></a>';
+
 /* ---------------- i18n core ---------------- */
 const I18N = { lang: 'en' };
 function t(key, params){
@@ -267,7 +275,7 @@ window.addEventListener('hashchange', route);
 
 /* ---------------- Marketing chrome ---------------- */
 function marketingNav(){
-  return '<nav class="mnav"><a class="logo" href="#/"><span class="mark"></span>HOTSCREEN&nbsp;V2</a>'+
+  return '<nav class="mnav">'+brandLogo()+
   '<div class="links"><a href="#features">'+t('nav.features')+'</a><a href="#architecture">'+t('nav.architecture')+'</a>'+
   '<a href="#roadmap">'+t('nav.roadmap')+'</a><a href="#/docs">'+t('nav.docs')+'</a></div>'+
   '<div class="cta-row">'+langSwitcher()+'<a class="btn btn-ghost btn-sm" href="#/demo">'+t('nav.launchDemo')+'</a>'+
@@ -275,7 +283,7 @@ function marketingNav(){
 }
 function marketingFoot(){
   return '<footer class="mfooter"><div class="cols">'+
-  '<div style="max-width:320px"><a class="logo" href="#/" style="margin-bottom:12px"><span class="mark"></span>HOTSCREEN&nbsp;V2</a>'+
+  '<div style="max-width:320px">'+brandLogo()+
   '<p style="margin-top:10px">'+t('foot.desc')+'</p></div>'+
   '<div><div class="mono muted" style="font-size:11px;letter-spacing:.2em;margin-bottom:10px">'+t('foot.product')+'</div>'+
   '<div><a href="#features">'+t('nav.features')+'</a></div><div><a href="#/demo">'+t('nav.launchDemo')+'</a></div><div><a href="#/app/dashboard">'+t('nav.controlCenter')+'</a></div></div>'+
@@ -523,7 +531,7 @@ function renderAppShell(root, page){
   });
   const pg = APP_PAGES.find(p=>p[0]===page);
   root.innerHTML =
-  '<div class="app"><aside class="sidebar"><div class="slogo"><a class="logo" href="#/"><span class="mark"></span>HOTSCREEN&nbsp;V2</a></div>'+
+  '<div class="app"><aside class="sidebar"><div class="slogo">'+brandLogo()+'</div>'+
   '<nav class="snav">'+nav+'</nav>'+
   '<div class="sfoot">'+t('app.sfoot')+'</div></aside>'+
   '<div class="main"><div class="topbar">'+

@@ -33,9 +33,14 @@ function setLang(l){
   try{ localStorage.setItem('hs2_lang', l); }catch(e){}
   document.documentElement.setAttribute('lang', l);
   applyI18nMeta();
+  const h = location.hash;
+  const isAnchor = h && h!=='#' && h.indexOf('#/')!==0;
   const y = window.scrollY;
   route();
-  requestAnimationFrame(()=>window.scrollTo(0,y));
+  requestAnimationFrame(()=>{
+    if(isAnchor){ const el=$(h); if(el){ el.scrollIntoView(); return; } }
+    window.scrollTo(0,y);
+  });
   toast(t('toast.lang'));
 }
 function applyI18nMeta(){
@@ -253,7 +258,9 @@ function _route(){
     location.hash = '#/app/dashboard'; return;
   }
   if(h.indexOf('#/') === 0){ location.hash = '#/'; return; }
-  if(!$('#top')) renderMarketingHome(root);
+  /* plain in-page anchor, e.g. #features — always re-render so that a language
+     switch while sitting on an anchor still updates every string */
+  renderMarketingHome(root);
   requestAnimationFrame(()=>{ const el = $(h); if(el) el.scrollIntoView(); });
 }
 window.addEventListener('hashchange', route);
@@ -831,24 +838,40 @@ APP_RENDER.access = function(ws){
 };
 
 /* ---------------- App: Profiles ---------------- */
+/* profile options use stable internal ids; labels are translated at render time */
+const PROF_IDS = ['default','standard','minimal'];
+function profLabel(k, id){
+  return id==='standard' ? t('prof.optStandard') : id==='minimal' ? t('prof.optMinimal') : t('prof.name.'+k);
+}
+function profGet(k){
+  const raw = Store.get('prof_'+k, null);
+  if(raw && PROF_IDS.indexOf(raw)>=0) return raw;
+  if(raw){
+    /* migrate legacy values saved as display names (en or zh) */
+    const L = window.HS_LOCALES||{}, en=L.en||{}, zh=L['zh-CN']||{};
+    if(raw===en['prof.name.'+k]||raw===zh['prof.name.'+k]) return 'default';
+    if(raw===en['prof.optStandard']||raw===zh['prof.optStandard']) return 'standard';
+    if(raw===en['prof.optMinimal']||raw===zh['prof.optMinimal']) return 'minimal';
+  }
+  return 'default';
+}
 APP_RENDER.profiles = function(ws){
   const P = DB.profiles;
   const saved = Store.get('profiles', null);
-  const defName = k => t('prof.name.'+k);
-  const profOpts = k => { const cur = Store.get('prof_'+k, defName(k));
-    return [defName(k), t('prof.optStandard'), t('prof.optMinimal')].map(o=>'<option'+(cur===o?' selected':'')+'>'+esc(o)+'</option>').join(''); };
-  const cards = [['theme','prof.theme','prof.themeD'],['rule','prof.rule','prof.ruleD'],
-   ['feedback','prof.feedback','prof.feedbackD'],['effect','prof.effect','prof.effectD']]
-  .map(([k,tk,dk])=>'<div class="panel" style="margin-bottom:0"><h3>'+t(tk)+'</h3><p class="psub">'+t(dk)+'</p>'+
+  const profOpts = k => { const cur = profGet(k);
+    return PROF_IDS.map(id=>'<option value="'+id+'"'+(cur===id?' selected':'')+'>'+esc(profLabel(k,id))+'</option>').join(''); };
+  const cards = [['theme','prof.theme'],['rule','prof.rule'],
+   ['feedback','prof.feedback'],['effect','prof.effect']]
+  .map(([k,tk])=>'<div class="panel" style="margin-bottom:0"><h3>'+t(tk)+'</h3><p class="psub">'+t(P[k].descKey)+'</p>'+
     '<div class="field"><label>'+t('prof.active')+'</label><select class="sel" data-p="'+k+'" aria-label="'+esc(t(tk))+'">'+profOpts(k)+'</select></div>'+
-    '<div class="muted" style="font-size:12.5px">'+t('prof.current')+' <b class="mono" data-cur="'+k+'">'+esc(Store.get('prof_'+k, defName(k)))+'</b><br>'+t(P[k].descKey)+'</div></div>').join('');
+    '<div class="muted" style="font-size:12.5px">'+t('prof.current')+' <b class="mono" data-cur="'+k+'">'+esc(profLabel(k, profGet(k)))+'</b><br>'+t(P[k].descKey)+'</div></div>').join('');
   ws.innerHTML = pageHead(t('prof.title'), t('prof.sub'),
     '<span class="badge '+(saved?'badge-live':'badge-demo')+'">'+t(saved?'prof.saved':'prof.defaults')+'</span>')+
   '<div class="grid2">'+cards+'</div><div class="flex gap8 mt16 wrap">'+
   '<button class="btn btn-primary btn-sm" id="pfSave">'+t('prof.save')+'</button>'+
   '<button class="btn btn-ghost btn-sm" id="pfLoad">'+t('prof.load')+'</button>'+
   '<button class="btn btn-danger btn-sm" id="pfReset">'+t('prof.reset')+'</button></div>';
-  $$('#ws [data-p]').forEach(s=>s.onchange=()=>{ $('[data-cur="'+s.dataset.p+'"]', ws).textContent = s.value; });
+  $$('#ws [data-p]').forEach(s=>s.onchange=()=>{ $('[data-cur="'+s.dataset.p+'"]', ws).textContent = profLabel(s.dataset.p, s.value); });
   $('#pfSave').onclick=()=>{ $$('#ws [data-p]').forEach(s=>Store.set('prof_'+s.dataset.p, s.value));
     Store.set('profiles', true); toast(t('prof.savedToast'),'ok'); APP_RENDER.profiles(ws); };
   $('#pfLoad').onclick=()=>{ if(!Store.get('profiles', null)) return toast(t('prof.noSave'),'warn');

@@ -74,7 +74,9 @@ function fmtNum(n){
 /* display-name helpers (internal values stay English) */
 const zoneName = id => t('zones.'+id);
 const expName  = e => ({Clear:t('exp.clear'),Monitored:t('exp.monitored'),Filtered:t('exp.filtered')}[e]||e);
-const fxName   = n => ({Pixelate:t('fx.pixelate'),Blur:t('fx.blur'),'Solid Cover':t('fx.solid'),'Scanlines':t('fx.scanlines'),'Glitch':t('fx.glitch'),'Cel Shader':t('fx.cel'),'Cellular Noise':t('fx.cellular'),'None':t('fx.none')}[n]||n);
+const fxName   = n => ({Pixelate:t('fx.pixelate'),Blur:t('fx.blur'),'Solid Cover':t('fx.solid'),'Scanlines':t('fx.scanlines'),'Glitch':t('fx.glitch'),'Cel Shader':t('fx.cel'),'Cellular Noise':t('fx.cellular'),'Oil Painting':t('fx.oil'),'None':t('fx.none')}[n]||n);
+/* effective mode for a stack filter (old configs without mode -> legacy behavior) */
+const fxEffMode = f => { const lib = FX_LIB.find(l=>l.name===f.name); return f.params.mode || (lib&&lib.legacyMode) || 'classic'; };
 const accName  = a => ({Granted:t('access.granted'),Leased:t('access.leased')}[a]||a);
 
 /* ---------------- Mock Data Provider (demo data only) ---------------- */
@@ -241,6 +243,8 @@ function renderStack(src, dst, stack){
       applyCel(c, w, h, fx.params||{});
     }else if(fx.name==='Cellular Noise'){
       applyCellular(c, w, h, fx.params||{});
+    }else if(fx.name==='Oil Painting'){
+      applyOil(c, w, h, fx.params||{});
     }
   });
 }
@@ -324,8 +328,9 @@ function applyGlitch(c, w, h, p){
 }
 
 /* ---------------- Cel Shader: toon quantization + Sobel ink outlines ----------------
-   blend=0 is a no-op. Distinct from Pixelate: flat color bands, not enlarged blocks. */
-function applyCel(c, w, h, p){
+   blend=0 is a no-op. Distinct from Pixelate: flat color bands, not enlarged blocks.
+   (Classic Toon mode — kept for backward compatibility.) */
+function applyCelClassic(c, w, h, p){
   const blend = Math.max(0, Math.min(100, p.blend|0))/100;
   if(blend <= 0) return;
   const levels = Math.max(2, Math.min(12, p.levels|0));
@@ -364,8 +369,134 @@ function applyCel(c, w, h, p){
   c.putImageData(img, 0, 0);
 }
 
+/* seeded 2D value noise (smooth, for irregular region boundaries) */
+function vnoise2(x, y, seed){
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x-xi, yf = y-yi;
+  const h = function(a, b){
+    let n = (Math.imul(a,374761393) + Math.imul(b,668265263) + Math.imul(seed,1442695041))|0;
+    n = (n ^ (n>>>13))|0; n = Math.imul(n,1274126177); n = (n ^ (n>>>16))>>>0;
+    return n/4294967296;
+  };
+  const u = xf*xf*(3-2*xf), v = yf*yf*(3-2*yf);
+  return h(xi,yi)*(1-u)*(1-v) + h(xi+1,yi)*u*(1-v) + h(xi,yi+1)*(1-u)*v + h(xi+1,yi+1)*u*v;
+}
+/* small k-means over cell average colors (deterministic via seed) */
+function kmeansPalette(avg, nCells, k, seed){
+  const rnd = rng32(seed^0x51af);
+  const cents = [], used = {};
+  let guard = 0;
+  while(cents.length < k && guard++ < 200){
+    const i = Math.floor(rnd()*nCells);
+    if(!used[i]){ used[i] = 1; cents.push([avg[3*i],avg[3*i+1],avg[3*i+2]]); }
+  }
+  const assign = new Uint8Array(nCells);
+  for(let it=0; it<12; it++){
+    for(let i=0;i<nCells;i++){
+      let bi=0, bd=1e18;
+      for(let j=0;j<cents.length;j++){
+        const dr=avg[3*i]-cents[j][0], dg=avg[3*i+1]-cents[j][1], db=avg[3*i+2]-cents[j][2];
+        const dd=dr*dr+dg*dg+db*db;
+        if(dd<bd){ bd=dd; bi=j; }
+      }
+      assign[i]=bi;
+    }
+    const sum=new Float64Array(cents.length*3), cnt=new Float64Array(cents.length);
+    for(let i=0;i<nCells;i++){ const a=assign[i]; sum[3*a]+=avg[3*i]; sum[3*a+1]+=avg[3*i+1]; sum[3*a+2]+=avg[3*i+2]; cnt[a]++; }
+    for(let j=0;j<cents.length;j++) if(cnt[j]>0){ cents[j][0]=sum[3*j]/cnt[j]; cents[j][1]=sum[3*j+1]/cnt[j]; cents[j][2]=sum[3*j+2]/cnt[j]; }
+  }
+  return cents;
+}
+
+/* ---------------- Cel Shader: Palette Regions (new default) ----------------
+   Irregular flat color regions driven by image color/luminance, with
+   noise-perturbed hand-cut boundaries. blend=0 is a no-op. */
+const CEL_REF_PALETTE = [
+  [232,144,156],[154,160,60],[232,201,60],[58,63,69],
+  [240,235,225],[70,90,110],[62,142,138],[180,90,60]
+];
+function applyCelRegions(c, w, h, p){
+  const blend = Math.max(0, Math.min(100, p.blend|0))/100;
+  if(blend <= 0) return;
+  const regionSize = Math.max(8, Math.min(64, p.regionSize|0 || 18));
+  const colorCount = Math.max(2, Math.min(8, p.colorCount|0 || 4));
+  const paletteName = p.palette || 'reference';
+  const variation = Math.max(0, Math.min(100, p.colorVariation==null?25:p.colorVariation))/100;
+  const irregularity = Math.max(0, Math.min(100, p.edgeIrregularity==null?50:p.edgeIrregularity))/100;
+  const smoothness = Math.max(0, Math.min(100, p.edgeSmoothness==null?60:p.edgeSmoothness))/100;
+  const seed = p.seed|0;
+  const img = c.getImageData(0, 0, w, h), d = img.data, n = w*h;
+  /* 1. palette */
+  let palette;
+  if(paletteName === 'original'){
+    const ns = Math.min(n, 4000), samp = new Float32Array(ns*3), rs = rng32(seed^0x51af);
+    for(let i=0;i<ns;i++){ const o=(Math.floor(rs()*n))*4; samp[3*i]=d[o]; samp[3*i+1]=d[o+1]; samp[3*i+2]=d[o+2]; }
+    palette = kmeansPalette(samp, ns, colorCount, seed);
+  }else{
+    palette = CEL_REF_PALETTE.slice(0, Math.min(colorCount, CEL_REF_PALETTE.length)).map(a=>a.slice());
+  }
+  const npal = palette.length;
+  /* 2. strongly smooth the image: downscale -> blur -> upscale (organic regions) */
+  const ds = Math.max(2, Math.min(12, Math.round(regionSize/3)));
+  const sw = Math.max(1, Math.round(w/ds)), sh = Math.max(1, Math.round(h/ds));
+  const tmp = mkCanvas(w, h); tmp.getContext('2d').putImageData(img, 0, 0);
+  const sc = mkCanvas(sw, sh), sx = sc.getContext('2d');
+  sx.imageSmoothingEnabled = true; sx.imageSmoothingQuality = 'high';
+  sx.drawImage(tmp, 0, 0, sw, sh);
+  sx.filter = 'blur(1.5px)'; sx.drawImage(sc, 0, 0); sx.drawImage(sc, 0, 0); sx.filter = 'none';
+  const sm = mkCanvas(w, h), smx = sm.getContext('2d');
+  smx.imageSmoothingEnabled = true; smx.imageSmoothingQuality = 'high';
+  smx.drawImage(sc, 0, 0, w, h);
+  const sd = smx.getImageData(0, 0, w, h).data;
+  /* 3. coarse perturbation + low-freq variation fields */
+  const nAmp = irregularity * regionSize * 0.5;
+  const nScale = 1/(regionSize*(1.2 + smoothness*3));
+  const nStep = Math.max(4, Math.round(regionSize/3));
+  const nw = Math.ceil(w/nStep)+2, nh = Math.ceil(h/nStep)+2;
+  const nfx = new Float32Array(nw*nh), nfy = new Float32Array(nw*nh), nvv = new Float32Array(nw*nh);
+  const s1 = seed^0x1111, s2 = seed^0x2222, s3 = seed^0x3333;
+  for(let j=0;j<nh;j++) for(let i=0;i<nw;i++){
+    const k=j*nw+i, X=i*nStep*nScale, Y=j*nStep*nScale;
+    nfx[k] = (0.65*vnoise2(X,Y,s1) + 0.35*vnoise2(X*2.13+7.3,Y*2.13+3.1,s1) - 0.5)*2*nAmp;
+    nfy[k] = (0.65*vnoise2(X,Y,s2) + 0.35*vnoise2(X*2.13+1.7,Y*2.13+9.2,s2) - 0.5)*2*nAmp;
+    nvv[k] = 1 + (vnoise2(X*0.5+3.7, Y*0.5+9.1, s3)-0.5)*variation*0.6;
+  }
+  const bsamp = function(f, x, y){
+    const fx=Math.max(0,Math.min(nw-1.001,x/nStep)), fy=Math.max(0,Math.min(nh-1.001,y/nStep));
+    const ix=Math.floor(fx), iy=Math.floor(fy), tx=fx-ix, ty=fy-iy, k=iy*nw+ix;
+    return f[k]*(1-tx)*(1-ty)+f[k+1]*tx*(1-ty)+f[k+nw]*(1-tx)*ty+f[k+nw+1]*tx*ty;
+  };
+  /* 4. per-pixel: perturbed smooth sample -> nearest palette -> flat color */
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const o=(y*w+x)*4;
+      let qx=x, qy=y;
+      if(nAmp > 0.01){ qx = x + bsamp(nfx,x,y); qy = y + bsamp(nfy,x,y); }
+      qx = Math.max(0, Math.min(w-1, Math.round(qx))); qy = Math.max(0, Math.min(h-1, Math.round(qy)));
+      const so=(qy*w+qx)*4, sr=sd[so], sg=sd[so+1], sb=sd[so+2];
+      let bi=0, bd=1e18;
+      for(let j=0;j<npal;j++){
+        const dr=sr-palette[j][0], dg=sg-palette[j][1], db=sb-palette[j][2];
+        const dd=dr*dr+dg*dg+db*db;
+        if(dd<bd){ bd=dd; bi=j; }
+      }
+      const vv = bsamp(nvv,x,y);
+      const pr = palette[bi][0]*vv, pgc = palette[bi][1]*vv, pb = palette[bi][2]*vv;
+      d[o]   += (pr -d[o])  *blend;
+      d[o+1] += (pgc-d[o+1])*blend;
+      d[o+2] += (pb -d[o+2])*blend;
+    }
+  }
+  c.putImageData(img, 0, 0);
+}
+
+/* Cel Shader dispatcher: old configs (no mode) -> classic; new adds default to regions */
+function applyCel(c, w, h, p){
+  if((p.mode || 'classic') === 'regions') applyCelRegions(c, w, h, p);
+  else applyCelClassic(c, w, h, p);
+}
+
 /* ---------------- Cellular Noise: 2D Voronoi / Worley ----------------
-   opacity=0 is a no-op. F1/F2 field cached per (size, jitter, seed). */
+   (Noise Overlay mode — the original texture. F1/F2 field cached per size/jitter/seed.) */
 const worleyCache = new Map();
 function worleyField(w, h, scale, jitter01, seed){
   const key = w+'x'+h+'|'+scale+'|'+jitter01.toFixed(3)+'|'+seed;
@@ -399,7 +530,8 @@ function worleyField(w, h, scale, jitter01, seed){
   if(worleyCache.size > 4) worleyCache.delete(worleyCache.keys().next().value);
   return e;
 }
-function applyCellular(c, w, h, p){
+/* (Noise Overlay mode — the original Worley texture; kept for backward compatibility.) */
+function applyCellOverlay(c, w, h, p){
   const opacity = Math.max(0, Math.min(100, p.opacity|0))/100;
   if(opacity <= 0) return;
   const scale = Math.max(4, Math.min(40, p.cellScale|0));
@@ -420,6 +552,247 @@ function applyCellular(c, w, h, p){
     d[o]   += (pr -d[o])  *opacity;
     d[o+1] += (pgc-d[o+1])*opacity;
     d[o+2] += (pb -d[o+2])*opacity;
+  }
+  c.putImageData(img, 0, 0);
+}
+
+/* shared Voronoi cell structure (seeded jittered grid) */
+function voronoiCells(w, h, scale, jitter01, seed){
+  const rnd = rng32(seed);
+  const gw = Math.ceil(w/scale)+2, gh = Math.ceil(h/scale)+2;
+  const px = new Float32Array(gw*gh), py = new Float32Array(gw*gh);
+  for(let j=0;j<gh;j++) for(let i=0;i<gw;i++){
+    const k = j*gw+i;
+    px[k] = (i+0.5+(rnd()*2-1)*jitter01*0.5)*scale;
+    py[k] = (j+0.5+(rnd()*2-1)*jitter01*0.5)*scale;
+  }
+  return { gw:gw, gh:gh, px:px, py:py, scale:scale };
+}
+/* nearest cell id + F1/F2 for one pixel (3x3 search is exact for jitter<=1) */
+function nearestCell(vc, x, y){
+  const gw = vc.gw, px = vc.px, py = vc.py, s = vc.scale;
+  const cx = Math.floor(x/s)+1, cy = Math.floor(y/s)+1;
+  let bi=-1, b1=1e18, b2=1e18;
+  for(let j=-1;j<=1;j++) for(let i=-1;i<=1;i++){
+    const k=(cy+j)*gw+(cx+i);
+    const dx=px[k]-x, dy=py[k]-y, dd=dx*dx+dy*dy;
+    if(dd<b1){ b2=b1; b1=dd; bi=k; } else if(dd<b2){ b2=dd; }
+  }
+  return { id:bi, f1:Math.sqrt(b1), f2:Math.sqrt(b2) };
+}
+
+/* ---------------- Cellular: Flat Cells (new default) ----------------
+   The image is truly fragmented: each Voronoi cell is filled with its
+   region's representative color. opacity=0 is a no-op. */
+function applyCellFlat(c, w, h, p, pre){
+  const opacity = Math.max(0, Math.min(100, p.opacity|0))/100;
+  if(opacity <= 0) return;
+  const scale = Math.max(8, Math.min(64, p.cellScale|0 || 28));
+  const density = Math.max(10, Math.min(100, p.density==null?100:p.density));
+  const effScale = scale * (1 + (100-density)/100*1.5);
+  const jitter = Math.max(0, Math.min(100, p.jitter==null?60:p.jitter))/100;
+  const borderW = Math.max(0, Math.min(8, p.borderWidth==null?2:p.borderWidth));
+  const borderDark = Math.max(0, Math.min(100, p.borderDark==null?50:p.borderDark))/100;
+  const colorMode = p.colorMode || 'average';
+  const seed = p.seed|0;
+  const vc = voronoiCells(w, h, effScale, jitter, seed);
+  const n = w*h, nCells = vc.gw*vc.gh;
+  const ids = new Int32Array(n), df = new Float32Array(n);
+  const sum = new Float64Array(nCells*3), cnt = new Float64Array(nCells);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const nc = nearestCell(vc, x, y), i = y*w+x, o = i*4;
+    ids[i] = nc.id; df[i] = nc.f2-nc.f1;
+    sum[3*nc.id]+=pre[o]; sum[3*nc.id+1]+=pre[o+1]; sum[3*nc.id+2]+=pre[o+2]; cnt[nc.id]++;
+  }
+  const img = c.getImageData(0, 0, w, h), d = img.data;
+  for(let i=0;i<n;i++){
+    const id = ids[i], o = i*4;
+    let pr, pgc, pb;
+    if(colorMode === 'center'){
+      const cx = Math.max(0, Math.min(w-1, Math.round(vc.px[id]))), cy = Math.max(0, Math.min(h-1, Math.round(vc.py[id])));
+      const co = (cy*w+cx)*4; pr = pre[co]; pgc = pre[co+1]; pb = pre[co+2];
+    }else{
+      const cc = cnt[id]||1; pr = sum[3*id]/cc; pgc = sum[3*id+1]/cc; pb = sum[3*id+2]/cc;
+    }
+    if(borderW > 0 && borderDark > 0 && df[i] < borderW){
+      const k = (1 - df[i]/borderW) * borderDark;
+      pr *= (1-k); pgc *= (1-k); pb *= (1-k);
+    }
+    d[o]   += (pr -d[o])  *opacity;
+    d[o+1] += (pgc-d[o+1])*opacity;
+    d[o+2] += (pb -d[o+2])*opacity;
+  }
+  c.putImageData(img, 0, 0);
+}
+
+/* ---------------- Cellular: Fragmented Image ----------------
+   Cells keep their local image texture, each shifted slightly (seeded).
+   opacity=0 is a no-op. */
+function applyCellFragments(c, w, h, p, pre){
+  const opacity = Math.max(0, Math.min(100, p.opacity|0))/100;
+  if(opacity <= 0) return;
+  const scale = Math.max(8, Math.min(64, p.cellScale|0 || 28));
+  const density = Math.max(10, Math.min(100, p.density==null?100:p.density));
+  const effScale = scale * (1 + (100-density)/100*1.5);
+  const jitter = Math.max(0, Math.min(100, p.jitter==null?60:p.jitter))/100;
+  const disp = Math.max(0, Math.min(30, p.displacement==null?6:p.displacement));
+  const borderW = Math.max(0, Math.min(8, p.borderWidth==null?2:p.borderWidth));
+  const borderDark = Math.max(0, Math.min(100, p.borderDark==null?55:p.borderDark))/100;
+  const seed = p.seed|0;
+  const vc = voronoiCells(w, h, effScale, jitter, seed);
+  const nCells = vc.gw*vc.gh;
+  const rnd = rng32(seed^0x77aa);
+  const cdx = new Float32Array(nCells), cdy = new Float32Array(nCells);
+  for(let k=0;k<nCells;k++){
+    const a = rnd()*6.2832, m = rnd()*disp;
+    cdx[k] = Math.cos(a)*m; cdy[k] = Math.sin(a)*m;
+  }
+  const img = c.getImageData(0, 0, w, h), d = img.data, n = w*h;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const nc = nearestCell(vc, x, y), i = y*w+x, o = i*4;
+    const sx = Math.max(0, Math.min(w-1, Math.round(x - cdx[nc.id])));
+    const sy = Math.max(0, Math.min(h-1, Math.round(y - cdy[nc.id])));
+    const so = (sy*w+sx)*4;
+    let pr = pre[so], pgc = pre[so+1], pb = pre[so+2];
+    if(borderW > 0 && borderDark > 0 && (nc.f2-nc.f1) < borderW){
+      const k = (1 - (nc.f2-nc.f1)/borderW) * borderDark;
+      pr *= (1-k); pgc *= (1-k); pb *= (1-k);
+    }
+    d[o]   += (pr -d[o])  *opacity;
+    d[o+1] += (pgc-d[o+1])*opacity;
+    d[o+2] += (pb -d[o+2])*opacity;
+  }
+  c.putImageData(img, 0, 0);
+}
+
+/* Cellular Noise dispatcher: old configs (no mode) -> overlay; new adds default to flat */
+function applyCellular(c, w, h, p){
+  const mode = p.mode || 'overlay';
+  if(mode === 'flat' || mode === 'fragments'){
+    const img = c.getImageData(0, 0, w, h);
+    const pre = new Uint8ClampedArray(img.data);
+    if(mode === 'flat') applyCellFlat(c, w, h, p, pre);
+    else applyCellFragments(c, w, h, p, pre);
+  }else{
+    applyCellOverlay(c, w, h, p);
+  }
+}
+
+/* ---------------- Oil Painting: Kuwahara painterly smoothing ----------------
+   Integral-image accelerated. blend=0 is a no-op. Deterministic (no RNG). */
+function kuwaharaPass(img, w, h, r, edgeP){
+  const d = img.data, W = w+1;
+  const iL=new Float64Array(W*(h+1)), iL2=new Float64Array(W*(h+1));
+  const iR=new Float64Array(W*(h+1)), iG=new Float64Array(W*(h+1)), iB=new Float64Array(W*(h+1));
+  for(let y=0;y<h;y++){
+    let sL=0,sL2=0,sR=0,sG=0,sB=0;
+    const row=(y+1)*W, prow=y*W;
+    for(let x=0;x<w;x++){
+      const o=(y*w+x)*4;
+      const L=0.2126*d[o]+0.7152*d[o+1]+0.0722*d[o+2];
+      sL+=L; sL2+=L*L; sR+=d[o]; sG+=d[o+1]; sB+=d[o+2];
+      const k=row+x+1, ku=prow+x+1;
+      iL[k]=iL[ku]+sL; iL2[k]=iL2[ku]+sL2;
+      iR[k]=iR[ku]+sR; iG[k]=iG[ku]+sG; iB[k]=iB[ku]+sB;
+    }
+  }
+  const out = new Uint8ClampedArray(d.length);
+  for(let y=0;y<h;y++){
+    const ya=Math.max(0,y-r), yb=y+1, yc=Math.min(h,y+r+1);
+    for(let xi=0;xi<w;xi++){
+      /* recompute x-dependent corners per pixel */
+      const x0=Math.max(0,xi-r), x1=xi+1, x2=Math.min(w,xi+r+1);
+      let bVar=1e18, br=0, bg=0, bb=0;
+      /* 4 quadrants: [x0,x1]x[ya,yb], [x1,x2]x[ya,yb], [x0,x1]x[yb,yc], [x1,x2]x[yb,yc] */
+      for(let q=0;q<4;q++){
+        const qx0=q%2?x1:x0, qx1=q%2?x2:x1, qy0=q<2?ya:yb, qy1=q<2?yb:yc;
+        const aa=qy0*W+qx0, bb2=qy0*W+qx1, cc=qy1*W+qx0, dd2=qy1*W+qx1;
+        const nn=Math.max(1,(qx1-qx0)*(qy1-qy0));
+        const sL=(iL[dd2]-iL[bb2]-iL[cc]+iL[aa])/nn;
+        const vr=(iL2[dd2]-iL2[bb2]-iL2[cc]+iL2[aa])/nn - sL*sL;
+        if(vr<bVar){
+          bVar=vr;
+          br=(iR[dd2]-iR[bb2]-iR[cc]+iR[aa])/nn;
+          bg=(iG[dd2]-iG[bb2]-iG[cc]+iG[aa])/nn;
+          bb=(iB[dd2]-iB[bb2]-iB[cc]+iB[aa])/nn;
+        }
+      }
+      /* full-window mean */
+      const fa=ya*W+x0, fb=ya*W+x2, fc=yc*W+x0, fd=yc*W+x2;
+      const nf=Math.max(1,(x2-x0)*(yc-ya));
+      const fr=(iR[fd]-iR[fb]-iR[fc]+iR[fa])/nf;
+      const fg=(iG[fd]-iG[fb]-iG[fc]+iG[fa])/nf;
+      const fb2=(iB[fd]-iB[fb]-iB[fc]+iB[fa])/nf;
+      const o=(y*w+xi)*4;
+      out[o]  =fr+(br-fr)  *edgeP;
+      out[o+1]=fg+(bg-fg)*edgeP;
+      out[o+2]=fb2+(bb-fb2)*edgeP;
+      out[o+3]=d[o+3];
+    }
+  }
+  return new ImageData(out, w, h);
+}
+/* cheap integral-image box blur (for Oil Painting extra smoothing) */
+function boxBlurPass(img, w, h, r){
+  const d = img.data, W = w+1, H = h+1;
+  const iR=new Float64Array(W*H), iG=new Float64Array(W*H), iB=new Float64Array(W*H);
+  for(let y=0;y<h;y++){
+    let sR=0,sG=0,sB=0;
+    for(let x=0;x<w;x++){
+      const o=(y*w+x)*4;
+      sR+=d[o]; sG+=d[o+1]; sB+=d[o+2];
+      const k=(y+1)*W+(x+1), ku=y*W+(x+1);
+      iR[k]=iR[ku]+sR; iG[k]=iG[ku]+sG; iB[k]=iB[ku]+sB;
+    }
+  }
+  const out = new Uint8ClampedArray(d.length);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const x0=Math.max(0,x-r), y0=Math.max(0,y-r), x1=Math.min(w,x+r+1), y1=Math.min(h,y+r+1);
+    const nn=(x1-x0)*(y1-y0), o=(y*w+x)*4;
+    out[o]  =(iR[y1*W+x1]-iR[y0*W+x1]-iR[y1*W+x0]+iR[y0*W+x0])/nn;
+    out[o+1]=(iG[y1*W+x1]-iG[y0*W+x1]-iG[y1*W+x0]+iG[y0*W+x0])/nn;
+    out[o+2]=(iB[y1*W+x1]-iB[y0*W+x1]-iB[y1*W+x0]+iB[y0*W+x0])/nn;
+    out[o+3]=d[o+3];
+  }
+  return new ImageData(out, w, h);
+}
+function applyOil(c, w, h, p){
+  const blend = Math.max(0, Math.min(100, p.blend|0))/100;
+  if(blend <= 0) return;
+  const r = Math.max(1, Math.min(8, p.brushSize|0 || 5));
+  const passes = 1 + Math.round(Math.max(0, Math.min(100, p.strokeStrength==null?75:p.strokeStrength))/100);
+  const detail = Math.max(0, Math.min(100, p.detail==null?50:p.detail))/200;
+  const smoothR = Math.round(Math.max(0, Math.min(100, p.smoothness==null?60:p.smoothness))/100*2);
+  const edgeP = Math.max(0, Math.min(100, p.edgePreserve==null?80:p.edgePreserve))/100;
+  const sat = Math.max(0, Math.min(200, p.saturation==null?105:p.saturation))/100;
+  const tex = Math.max(0, Math.min(100, p.texture|0))/100;
+  const srcImg = c.getImageData(0, 0, w, h);
+  const orig = new Uint8ClampedArray(srcImg.data);
+  let img = srcImg;
+  for(let i=0;i<passes;i++) img = kuwaharaPass(img, w, h, r, edgeP);
+  /* optional extra smoothing: cheap integral box blur (not another Kuwahara pass) */
+  if(smoothR > 0) img = boxBlurPass(img, w, h, smoothR);
+  const d = img.data, n = w*h;
+  for(let i=0;i<n;i++){
+    const o=i*4;
+    /* detail preservation: pre-mix with original */
+    let rr = d[o]+(orig[o]-d[o])*detail, gg = d[o+1]+(orig[o+1]-d[o+1])*detail, bb = d[o+2]+(orig[o+2]-d[o+2])*detail;
+    /* saturation */
+    const L = 0.2126*rr+0.7152*gg+0.0722*bb;
+    rr = L+(rr-L)*sat; gg = L+(gg-L)*sat; bb = L+(bb-L)*sat;
+    /* canvas weave (deterministic) */
+    if(tex > 0){
+      const wv = Math.sin(i%w*0.35)*Math.sin(Math.floor(i/w)*0.35)*tex*4;
+      rr+=wv; gg+=wv; bb+=wv;
+    }
+    d[o]=rr; d[o+1]=gg; d[o+2]=bb;
+  }
+  /* final blend with the true original */
+  if(blend < 1){
+    for(let i=0;i<n;i++){
+      const o=i*4;
+      d[o]+= (orig[o]-d[o])*blend; d[o+1]+=(orig[o+1]-d[o+1])*blend; d[o+2]+=(orig[o+2]-d[o+2])*blend;
+    }
   }
   c.putImageData(img, 0, 0);
 }
@@ -648,7 +1021,7 @@ function renderDocs(root){
   '<div class="panel"><h3>'+t('docs.s3t')+'</h3><p class="psub">'+t('docs.s3sub')+'</p>'+
   '<table class="tbl"><tr><th>'+t('docs.thFilter')+'</th><th>'+t('docs.thParams')+'</th><th>'+t('docs.thStatus')+'</th></tr>'+
   [['Pixelate','size 2–40'],['Blur','radius 1–24'],['Solid Cover','opacity 10–100%'],['Scanlines','opacity 5–60%'],
-   ['Glitch','intensity 0–100 · rgb 0–20px · 6 params'],['Cel Shader','levels 2–12 · blend 0–100% · 5 params'],['Cellular Noise','scale 4–40 · opacity 0–100% · 6 params']].map(r=>
+   ['Glitch','intensity 0–100 · rgb 0–20px · 6 params'],['Cel Shader','classic / palette-regions · 2 modes'],['Cellular Noise','flat / fragments / overlay · 3 modes'],['Oil Painting','Kuwahara brush 1–8 · 8 params']].map(r=>
   '<tr><td>'+fxName(r[0])+'</td><td class="mono">'+r[1]+'</td><td><span class="badge badge-live">'+t('docs.working')+'</span></td></tr>').join('')+'</table></div>'+
 
   '<div class="panel"><h3>'+t('docs.s4t')+'</h3>'+
@@ -662,7 +1035,7 @@ function renderDocs(root){
 /* ---------------- Interactive Demo ---------------- */
 const DemoState = { variant:0, fx:'Pixelate', param:14, level:4, compare:true };
 /* demo: one main slider param per filter (other params use FX_LIB defaults) */
-const DEMO_FX_ORDER = ['Pixelate','Blur','Solid Cover','Glitch','Cel Shader','Cellular Noise'];
+const DEMO_FX_ORDER = ['Pixelate','Blur','Solid Cover','Glitch','Cel Shader','Cellular Noise','Oil Painting'];
 const DEMO_FX = {
   'Pixelate':      {key:'size',      min:2,  max:40,  def:14,  labelKey:'fx.pSize'},
   'Blur':          {key:'radius',    min:1,  max:24,  def:8,   labelKey:'fx.pRadius'},
@@ -670,6 +1043,7 @@ const DEMO_FX = {
   'Glitch':        {key:'intensity', min:0,  max:100, def:35,  labelKey:'fx.pIntensity'},
   'Cel Shader':    {key:'blend',     min:0,  max:100, def:100, labelKey:'fx.pBlend'},
   'Cellular Noise':{key:'opacity',   min:0,  max:100, def:75,  labelKey:'fx.pOpacity'},
+  'Oil Painting':  {key:'blend',     min:0,  max:100, def:100, labelKey:'fx.pBlend'},
 };
 function renderDemo(root){
   root.innerHTML = marketingNav() +
@@ -871,7 +1245,7 @@ function zonePanel(z){
   '<div class="field"><label>'+t('bp.stage')+' · <output id="zStageOut" style="color:var(--cyan)">'+z.stage+'</output> / 6</label>'+
   '<div class="row"><input type="range" id="zStage" min="0" max="6" value="'+z.stage+'" style="flex:1" aria-label="'+esc(t('bp.stage'))+'"></div></div>'+
   '<div class="trow"><div class="tl">'+t('bp.effect')+'</div>'+
-  '<select class="sel" id="zFx" aria-label="'+esc(t('bp.effect'))+'">'+['None','Pixelate','Blur','Solid Cover','Glitch','Cel Shader','Cellular Noise'].map(e=>'<option value="'+e+'"'+(e===z.effect?' selected':'')+'>'+fxName(e)+'</option>').join('')+'</select></div>'+
+  '<select class="sel" id="zFx" aria-label="'+esc(t('bp.effect'))+'">'+['None','Pixelate','Blur','Solid Cover','Glitch','Cel Shader','Cellular Noise','Oil Painting'].map(e=>'<option value="'+e+'"'+(e===z.effect?' selected':'')+'>'+fxName(e)+'</option>').join('')+'</select></div>'+
   '<hr class="hr"><div class="grid2">'+
   '<div class="stat"><div class="k">'+t('bp.xp')+'</div><div class="v" style="font-size:20px">'+fmtNum(z.xp)+'</div></div>'+
   '<div class="stat"><div class="k">'+t('bp.credits')+'</div><div class="v am" style="font-size:20px">◉ '+fmtNum(z.credits)+'</div></div></div>'+
@@ -891,19 +1265,46 @@ const FX_LIB = [
     blockSize:{labelKey:'fx.pBlockSize', min:4, max:64, def:16},
     seed:{labelKey:'fx.pSeed', min:0, max:999, def:42},
     animSpeed:{labelKey:'fx.pAnimSpeed', min:0, max:5, def:0} } },
-  { name:'Cel Shader', descKey:'fx.dCel', params:{
-    levels:{labelKey:'fx.pLevels', min:2, max:12, def:5},
-    edgeThreshold:{labelKey:'fx.pEdgeThreshold', min:0, max:100, def:35},
-    outline:{labelKey:'fx.pOutline', min:0, max:100, def:60},
-    saturation:{labelKey:'fx.pSaturation', min:0, max:200, def:110},
+  { name:'Cel Shader', descKey:'fx.dCel', legacyMode:'classic', params:{
+    mode:{type:'select', labelKey:'fx.pMode', options:['classic','regions'],
+      labels:{classic:'fx.mClassic',regions:'fx.mRegions'}, def:'regions'},
+    levels:{labelKey:'fx.pLevels', min:2, max:12, def:5, modes:['classic']},
+    edgeThreshold:{labelKey:'fx.pEdgeThreshold', min:0, max:100, def:35, modes:['classic']},
+    outline:{labelKey:'fx.pOutline', min:0, max:100, def:60, modes:['classic']},
+    saturation:{labelKey:'fx.pSaturation', min:0, max:200, def:110, modes:['classic']},
+    regionSize:{labelKey:'fx.pRegionSize', min:8, max:64, def:18, modes:['regions']},
+    colorCount:{labelKey:'fx.pColorCount', min:2, max:8, def:4, modes:['regions']},
+    palette:{type:'select', labelKey:'fx.pPalette', options:['reference','original'],
+      labels:{reference:'fx.pRefPalette',original:'fx.pOrigPalette'}, def:'reference', modes:['regions']},
+    colorVariation:{labelKey:'fx.pColorVariation', min:0, max:100, def:25, modes:['regions']},
+    edgeIrregularity:{labelKey:'fx.pEdgeIrregularity', min:0, max:100, def:55, modes:['regions']},
+    edgeSmoothness:{labelKey:'fx.pEdgeSmoothness', min:0, max:100, def:60, modes:['regions']},
+    seed:{labelKey:'fx.pSeed', min:0, max:999, def:42, modes:['regions']},
+    blend:{labelKey:'fx.pBlend', min:0, max:100, def:100, modes:['classic','regions']} } },
+  { name:'Cellular Noise', descKey:'fx.dCellular', legacyMode:'overlay', params:{
+    mode:{type:'select', labelKey:'fx.pMode', options:['flat','fragments','overlay'],
+      labels:{flat:'fx.mFlat',fragments:'fx.mFragments',overlay:'fx.mOverlay'}, def:'flat'},
+    cellScale:{labelKey:'fx.pCellScale', min:4, max:64, def:28, modes:['flat','fragments','overlay']},
+    density:{labelKey:'fx.pDensity', min:10, max:100, def:100, modes:['flat','fragments']},
+    jitter:{labelKey:'fx.pJitter', min:0, max:100, def:60, modes:['flat','fragments','overlay']},
+    displacement:{labelKey:'fx.pDisplacement', min:0, max:30, def:6, modes:['fragments']},
+    borderWidth:{labelKey:'fx.pBorderWidth', min:0, max:8, def:2, modes:['flat','fragments']},
+    borderDark:{labelKey:'fx.pBorderDark', min:0, max:100, def:50, modes:['flat','fragments']},
+    colorMode:{type:'select', labelKey:'fx.pColorMode', options:['average','center'],
+      labels:{average:'fx.pAvgColor',center:'fx.pCenterColor'}, def:'average', modes:['flat']},
+    contrast:{labelKey:'fx.pContrast', min:0, max:200, def:120, modes:['overlay']},
+    edge:{labelKey:'fx.pEdge', min:0, max:100, def:55, modes:['overlay']},
+    opacity:{labelKey:'fx.pOpacity', min:0, max:100, def:85, modes:['flat','fragments','overlay']},
+    seed:{labelKey:'fx.pSeed', min:0, max:999, def:42, modes:['flat','fragments','overlay']} } },
+  { name:'Oil Painting', descKey:'fx.dOil', params:{
+    brushSize:{labelKey:'fx.pBrushSize', min:1, max:8, def:5},
+    strokeStrength:{labelKey:'fx.pStrokeStrength', min:0, max:100, def:75},
+    detail:{labelKey:'fx.pDetail', min:0, max:100, def:50},
+    smoothness:{labelKey:'fx.pSmoothness', min:0, max:100, def:60},
+    edgePreserve:{labelKey:'fx.pEdgePreserve', min:0, max:100, def:80},
+    saturation:{labelKey:'fx.pSaturation', min:0, max:200, def:105},
+    texture:{labelKey:'fx.pCanvasTex', min:0, max:100, def:0},
     blend:{labelKey:'fx.pBlend', min:0, max:100, def:100} } },
-  { name:'Cellular Noise', descKey:'fx.dCellular', params:{
-    cellScale:{labelKey:'fx.pCellScale', min:4, max:40, def:14},
-    jitter:{labelKey:'fx.pJitter', min:0, max:100, def:65},
-    contrast:{labelKey:'fx.pContrast', min:0, max:200, def:120},
-    edge:{labelKey:'fx.pEdge', min:0, max:100, def:55},
-    opacity:{labelKey:'fx.pOpacity', min:0, max:100, def:75},
-    seed:{labelKey:'fx.pSeed', min:0, max:999, def:42} } },
 ];
 /* glitch animation timer (effects page only; cleared on route change) */
 let fxAnimTimer = null;
@@ -912,7 +1313,7 @@ function stopFxAnim(){ if(fxAnimTimer){ clearInterval(fxAnimTimer); fxAnimTimer 
 const FX_PRESETS = [
   { key:'fx.presetName', stack:[['Blur',{radius:10}],['Scanlines',{opacity:22}]] },
   { key:'fx.presetTear',  stack:[['Glitch',{intensity:55,rgbSplit:8,displacement:20,blockSize:16,seed:42,animSpeed:0}]] },
-  { key:'fx.presetToon',  stack:[['Cel Shader',{levels:4,edgeThreshold:30,outline:75,saturation:115,blend:100}]] },
+  { key:'fx.presetToon',  stack:[['Cel Shader',{mode:'classic',levels:4,edgeThreshold:30,outline:75,saturation:115,blend:100}]] },
   { key:'fx.presetField', stack:[['Cellular Noise',{cellScale:14,jitter:65,contrast:120,edge:55,opacity:75,seed:42}]] },
 ];
 APP_RENDER.effects = function(ws){
@@ -924,6 +1325,16 @@ APP_RENDER.effects = function(ws){
   '<figure><canvas id="eSrc" width="560" height="360" class="hidden"></canvas><canvas id="eBefore" width="560" height="360"></canvas><figcaption>'+t('fx.before')+'</figcaption></figure>'+
   '<figure><canvas id="eDst" width="560" height="360"></canvas><figcaption id="eAfterCap">'+t('fx.after',{names:t('fx.afterEmpty')})+'</figcaption></figure>'+
   '</div></div>'+
+  '<div class="mrow" style="margin-top:14px;gap:14px;flex-wrap:wrap;align-items:flex-end">'+
+  '<div class="field" style="margin:0"><label>'+t('fx.mask')+'</label>'+
+  '<select class="sel" id="maskShape" aria-label="'+esc(t('fx.mask'))+'">'+
+  '<option value="full">'+t('fx.mFull')+'</option><option value="rect">'+t('fx.mRect')+'</option>'+
+  '<option value="ellipse">'+t('fx.mEllipse')+'</option></select></div>'+
+  '<div class="field" style="margin:0"><label>'+t('fx.maskSize')+'</label>'+
+  '<div class="row"><input type="range" id="maskSize" min="10" max="100" value="60" style="width:110px" aria-label="'+esc(t('fx.maskSize'))+'"><output id="maskSizeOut">60</output></div></div>'+
+  '<div class="field" style="margin:0"><label>'+t('fx.maskFeather')+'</label>'+
+  '<div class="row"><input type="range" id="maskFeather" min="0" max="60" value="18" style="width:110px" aria-label="'+esc(t('fx.maskFeather'))+'"><output id="maskFeatherOut">18</output></div></div></div>'+
+  '<p class="psub" style="margin-top:8px">'+t('fx.maskSub')+'</p>'+
   '<div class="grid3">'+
   '<div class="panel"><h3>'+t('fx.stack')+'</h3><p class="psub">'+t('fx.stackSub')+'</p>'+
     '<div class="stack" id="fxStack"></div>'+
@@ -935,9 +1346,50 @@ APP_RENDER.effects = function(ws){
   '<div class="panel"><h3>'+t('fx.params')+'</h3><p class="psub">'+t('fx.paramsSub')+'</p><div id="fxParams"></div></div>'+
   '</div>';
   const src=$('#eSrc'); paintPattern(src.getContext('2d'), src.width, src.height, 0);
+  /* Preview Mask (studio demo only): full stack renders inside, original stays outside */
+  let maskShape='full', maskSize=60, maskFeather=18;
+  const maskCache={key:'', data:null};
+  const buildMask=(w,h)=>{
+    const key=[maskShape,maskSize,maskFeather,w,h].join('|');
+    if(maskCache.key===key && maskCache.data) return maskCache.data;
+    const mc=mkCanvas(w,h), mx=mc.getContext('2d');
+    mx.fillStyle='#000'; mx.fillRect(0,0,w,h);
+    mx.fillStyle='#fff';
+    const s=maskSize/100;
+    if(maskShape==='rect'){
+      const mw=w*0.8*s, mh=h*0.8*s;
+      mx.fillRect((w-mw)/2,(h-mh)/2,mw,mh);
+    }else if(maskShape==='ellipse'){
+      mx.beginPath(); mx.ellipse(w/2,h/2,w*0.42*s,h*0.42*s,0,0,6.2832); mx.fill();
+    }
+    let md;
+    if(maskFeather>0 && maskShape!=='full'){
+      const bc=mkCanvas(w,h), bx=bc.getContext('2d');
+      bx.filter='blur('+maskFeather+'px)'; bx.drawImage(mc,0,0); bx.filter='none';
+      md=bx.getImageData(0,0,w,h).data;
+    }else{ md=mx.getImageData(0,0,w,h).data; }
+    const m=new Float32Array(w*h);
+    for(let i=0;i<w*h;i++) m[i]=md[i*4]/255;
+    maskCache.key=key; maskCache.data=m;
+    return m;
+  };
   const draw=()=>{
     $('#eBefore').getContext('2d').drawImage(src,0,0);
-    renderStack(src, $('#eDst'), DB.stack);
+    const dst=$('#eDst');
+    renderStack(src, dst, DB.stack);
+    if(maskShape!=='full'){
+      const w=dst.width, h=dst.height, m=buildMask(w,h);
+      const ctx=dst.getContext('2d');
+      const img=ctx.getImageData(0,0,w,h), d=img.data;
+      const sdata=src.getContext('2d').getImageData(0,0,w,h).data;
+      for(let i=0;i<w*h;i++){
+        const k=m[i]; if(k>=1) continue;
+        const o=i*4;
+        if(k<=0){ d[o]=sdata[o]; d[o+1]=sdata[o+1]; d[o+2]=sdata[o+2]; }
+        else{ d[o]+= (sdata[o]-d[o])*(1-k); d[o+1]+=(sdata[o+1]-d[o+1])*(1-k); d[o+2]+=(sdata[o+2]-d[o+2])*(1-k); }
+      }
+      ctx.putImageData(img,0,0);
+    }
     const names = DB.stack.filter(f=>f.on).map(f=>fxName(f.name)).join(' → ') || t('fx.afterEmpty');
     $('#eAfterCap').textContent = t('fx.after',{names:names});
     syncFxAnim();
@@ -988,17 +1440,30 @@ APP_RENDER.effects = function(ws){
   const renderParams=()=>{
     $('#fxParams').innerHTML = DB.stack.map((f,i)=>{
       const lib=FX_LIB.find(l=>l.name===f.name); if(!lib) return '';
-      const fields = Object.keys(lib.params).map(pk=>{
+      const mode=fxEffMode(f);
+      const fields = Object.keys(lib.params).filter(pk=>{
+        const p=lib.params[pk]; return !p.modes || p.modes.indexOf(mode)>=0;
+      }).map(pk=>{
         const p=lib.params[pk];
+        const cur = pk==='mode' ? mode : ((f.params[pk]!==undefined && f.params[pk]!==null) ? f.params[pk] : p.def);
+        const al = 'aria-label="'+esc(fxName(f.name)+' · '+t(p.labelKey))+'"';
+        if(p.type==='select'){
+          const opts=p.options.map(o=>'<option value="'+o+'"'+(o===cur?' selected':'')+'>'+t(p.labels[o])+'</option>').join('');
+          return '<div class="field"><label>'+t(p.labelKey)+'</label>'+
+          '<div class="row"><select class="sel" data-f="'+f.id+'" data-p="'+pk+'" data-t="select" style="flex:1" '+al+'>'+opts+'</select></div></div>';
+        }
         return '<div class="field"><label>'+t(p.labelKey)+'</label>'+
-        '<div class="row"><input type="range" min="'+p.min+'" max="'+p.max+'" value="'+f.params[pk]+'" data-f="'+f.id+'" data-p="'+pk+'" style="flex:1" aria-label="'+esc(fxName(f.name)+' · '+t(p.labelKey))+'">'+
-        '<output>'+f.params[pk]+'</output></div></div>';
+        '<div class="row"><input type="range" min="'+p.min+'" max="'+p.max+'" value="'+cur+'" data-f="'+f.id+'" data-p="'+pk+'" style="flex:1" '+al+'">'+
+        '<output>'+cur+'</output></div></div>';
       }).join('');
       return '<div class="pgroup"><div class="pgname">'+(i+1)+' · '+fxName(f.name).toUpperCase()+(f.on?'':' · '+t('fx.off'))+'</div>'+fields+'</div>';
     }).join('') || '<p class="muted">'+t('fx.noParams')+'</p>';
     $$('#fxParams input[type=range]').forEach(r=>r.oninput=()=>{
       const f=DB.stack.find(x=>x.id===r.dataset.f); f.params[r.dataset.p]=+r.value;
       r.nextElementSibling.textContent=r.value; draw(); });
+    $$('#fxParams select[data-t="select"]').forEach(s=>s.onchange=()=>{
+      const f=DB.stack.find(x=>x.id===s.dataset.f); f.params[s.dataset.p]=s.value;
+      renderParams(); draw(); });
   };
   $('#fxLib').innerHTML = FX_LIB.map(l=>
     '<div class="libitem"><div><div style="font-weight:600">'+fxName(l.name)+'</div>'+
@@ -1017,6 +1482,9 @@ APP_RENDER.effects = function(ws){
     const pr=FX_PRESETS[+e.target.value]; e.target.value=''; if(!pr) return;
     DB.stack=pr.stack.map((s,i)=>({id:'fx'+Date.now()+i, name:s[0], on:true, params:Object.assign({},s[1])}));
     renderList(); renderParams(); toast(t('fx.presetDone',{name:t(pr.key)}),'ok'); };
+  $('#maskShape').onchange=e=>{ maskShape=e.target.value; draw(); };
+  $('#maskSize').oninput=e=>{ maskSize=+e.target.value; $('#maskSizeOut').textContent=e.target.value; draw(); };
+  $('#maskFeather').oninput=e=>{ maskFeather=+e.target.value; $('#maskFeatherOut').textContent=e.target.value; draw(); };
   renderList(); renderParams();
 };
 

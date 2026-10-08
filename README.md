@@ -29,7 +29,7 @@ such as fonts.
 
 ### Interactive Demo (`#/demo`)
 Try the core idea hands-on: three neutral test patterns (Orbs, Bars, Wave) ×
-six filters (Pixelate, Blur, Solid Cover, Glitch, Cel Shader, Cellular Noise) × a Global Level slider (0–10).
+seven filters (Pixelate, Blur, Solid Cover, Glitch, Cel Shader, Cellular Noise, Oil Painting) × a Global Level slider (0–10).
 Everything is computed live on canvas and clearly labeled **DEMO**.
 
 ### Control Center (`#/app/*`)

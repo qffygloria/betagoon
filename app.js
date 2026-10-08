@@ -532,6 +532,8 @@ function renderAppShell(root, page){
     '<span class="tstat">'+t('app.level')+' <b>'+DB.level+'</b></span>'+
     '<span class="tstat">◉ <b>'+fmtNum(DB.credits)+'</b></span>'+
     langSwitcher()+
+    '<select class="sel pagenav" id="pageNav" aria-label="'+esc(t(pg[2]))+'">'+
+      APP_PAGES.map(p=>'<option value="'+p[0]+'"'+(p[0]===page?' selected':'')+'>'+t(p[2])+'</option>').join('')+'</select>'+
     '<button class="iconbtn" id="themeBtn" title="'+esc(t('a11y.theme'))+'" aria-label="'+esc(t('a11y.theme'))+'">◐</button>'+
     '<button class="iconbtn" id="bellBtn" title="'+esc(t('a11y.bell'))+'" aria-label="'+esc(t('a11y.bell'))+'">♪</button>'+
     '<a class="btn btn-ghost btn-sm" href="#/">'+t('nav.backSite')+'</a>'+
@@ -539,6 +541,7 @@ function renderAppShell(root, page){
   applyTheme();
   $('#themeBtn').onclick = toggleTheme;
   $('#bellBtn').onclick = ()=>toast(t('app.bell'), 'warn');
+  const pn = $('#pageNav'); if(pn) pn.onchange = e=>{ location.hash = '#/app/'+e.target.value; };
   APP_RENDER[page]($('#ws'));
 }
 function pageHead(title, sub, extra){

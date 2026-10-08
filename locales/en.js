@@ -2,8 +2,9 @@
 window.HS_LOCALES = window.HS_LOCALES || {};
 window.HS_LOCALES.en = {
 /* meta */
-'meta.title': 'Hotscreen V2 — Beyond Censorship. Into Control.',
-'meta.desc': 'Hotscreen V2 demo website: brand site, interactive demo and control center. All values simulated.',
+'meta.title': 'SYNVEIL — Perception. Rules. Control.',
+'brand.name': 'SYNVEIL',
+'meta.desc': 'SYNVEIL demo website: brand site, interactive demo and control center. All values simulated.',
 /* nav */
 'nav.features': 'Features',
 'nav.architecture': 'Architecture',
@@ -17,17 +18,17 @@ window.HS_LOCALES.en = {
 'a11y.theme': 'Toggle theme',
 'a11y.bell': 'Notifications',
 /* hero */
-'hero.kick': 'HOTSCREEN V2 · DEMO BUILD',
-'hero.l1': 'Beyond Censorship.',
-'hero.l2': 'Into Control.',
-'hero.sub': 'A next-generation screen interaction system built on body-part semantics, effect orchestration and dynamic rules.',
+'hero.kick': 'SYNVEIL · DEMO BUILD',
+'hero.l1': 'Perception.',
+'hero.l2': 'Rules. Control.',
+'hero.sub': 'An adaptive visual interaction system built on body-part semantics, effect orchestration and dynamic rules.',
 'hero.explore': 'Explore Features',
 'hero.launch': 'Launch Demo',
 'hero.badgeDemo': 'Demo mode',
 'hero.badgePersonal': 'Personal project · Non-commercial',
 'hero.badgeSoon': 'No download yet — coming soon',
 /* console */
-'console.title': 'hotscreen://console — demo',
+'console.title': 'synveil://console — demo',
 'console.msg0': 'pipeline nominal',
 'console.msg1': 'detection: 8 zones mapped',
 'console.msg2': 'policy: pack v2 active',
@@ -63,7 +64,7 @@ window.HS_LOCALES.en = {
 /* architecture */
 'arch.kick': 'Architecture',
 'arch.title': 'Client-side by design.',
-'arch.lede': 'Hotscreen V2 is a personal, non-commercial software engineering project. This demo runs entirely in your browser — no backend, no accounts, no telemetry. The only external requests are static assets such as fonts.',
+'arch.lede': 'SYNVEIL is a personal, non-commercial software engineering project. This demo runs entirely in your browser — no backend, no accounts, no telemetry. The only external requests are static assets such as fonts.',
 'arch.c1t': 'SPA Shell',
 'arch.c1d': 'Hash-routed single-page app. Brand site, interactive demo and control center share one design system and one codebase.',
 'arch.c2t': 'Policy Engine',
@@ -105,7 +106,7 @@ window.HS_LOCALES.en = {
 'rm.tagNotStarted': 'not started', 'rm.tagSoon': 'coming soon',
 /* faq */
 'faq.kick': 'FAQ', 'faq.title': 'Questions.',
-'faq.q1': 'What is Hotscreen V2?',
+'faq.q1': 'What is SYNVEIL?',
 'faq.a1': 'A design concept for a screen interaction system: semantic body-part detection, composable visual effects, and a progression/rules layer. This website is a demo build.',
 'faq.q2': 'Can I download it?',
 'faq.a2': 'Not yet. There is no download link because there is no shipping build. The roadmap marks it as coming soon.',
@@ -118,7 +119,7 @@ window.HS_LOCALES.en = {
 /* footer */
 'foot.desc': 'A personal, non-commercial software engineering project — interactive demo and mock control center.',
 'foot.product': 'PRODUCT', 'foot.resources': 'RESOURCES', 'foot.status': 'STATUS',
-'foot.base': 'HOTSCREEN V2 — personal non-commercial engineering demo. No downloads available yet.',
+'foot.base': 'SYNVEIL — personal non-commercial engineering demo. No downloads available yet.',
 'foot.build': 'v2.0.0-demo · static build',
 'foot.comingSoon': 'Coming soon',
 /* docs */

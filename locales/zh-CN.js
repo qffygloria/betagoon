@@ -2,8 +2,9 @@
 window.HS_LOCALES = window.HS_LOCALES || {};
 window.HS_LOCALES['zh-CN'] = {
 /* meta */
-'meta.title': 'Hotscreen V2 — 超越审查，掌控一切。',
-'meta.desc': 'Hotscreen V2 演示网站：品牌官网、交互演示与控制中心。所有数值为模拟数据。',
+'meta.title': '序帷 SYNVEIL — 感知。规则。掌控。',
+'brand.name': '序帷',
+'meta.desc': '序帷 SYNVEIL 演示网站：品牌官网、交互演示与控制中心。所有数值为模拟数据。',
 /* nav */
 'nav.features': '功能',
 'nav.architecture': '架构',
@@ -17,17 +18,17 @@ window.HS_LOCALES['zh-CN'] = {
 'a11y.theme': '切换主题',
 'a11y.bell': '通知',
 /* hero */
-'hero.kick': 'HOTSCREEN V2 · 演示版本',
-'hero.l1': '超越审查。',
-'hero.l2': '掌控一切。',
-'hero.sub': '基于身体部位语义、视觉效果编排与动态规则的下一代屏幕交互系统。',
+'hero.kick': '序帷 SYNVEIL · 演示版本',
+'hero.l1': '感知。',
+'hero.l2': '规则。掌控。',
+'hero.sub': '基于身体部位语义、视觉效果编排与动态规则的自适应视觉交互系统。',
 'hero.explore': '探索功能',
 'hero.launch': '启动演示',
 'hero.badgeDemo': '演示模式',
 'hero.badgePersonal': '个人项目 · 非商业',
 'hero.badgeSoon': '暂无下载 — 即将推出',
 /* console */
-'console.title': 'hotscreen://console — 演示',
+'console.title': 'synveil://console — 演示',
 'console.msg0': '管线正常',
 'console.msg1': '检测：已映射 8 个区域',
 'console.msg2': '策略：规则包 v2 生效中',
@@ -63,7 +64,7 @@ window.HS_LOCALES['zh-CN'] = {
 /* architecture */
 'arch.kick': '架构',
 'arch.title': '为客户端而生。',
-'arch.lede': 'Hotscreen V2 是一个个人非商业软件工程项目。本演示完全在浏览器中运行——无后端、无账号、无遥测。仅有的外部请求是字体等静态资源。',
+'arch.lede': '序帷 SYNVEIL 是一个个人非商业软件工程项目。本演示完全在浏览器中运行——无后端、无账号、无遥测。仅有的外部请求是字体等静态资源。',
 'arch.c1t': '单页应用外壳',
 'arch.c1d': '哈希路由单页应用。品牌官网、交互演示与控制中心共用一套设计系统与代码库。',
 'arch.c2t': '策略引擎',
@@ -105,7 +106,7 @@ window.HS_LOCALES['zh-CN'] = {
 'rm.tagNotStarted': '未开始', 'rm.tagSoon': '即将推出',
 /* faq */
 'faq.kick': '常见问题', 'faq.title': '问题解答。',
-'faq.q1': 'Hotscreen V2 是什么？',
+'faq.q1': '序帷 SYNVEIL 是什么？',
 'faq.a1': '一套屏幕交互系统的设计概念：语义身体部位检测、可组合视觉滤镜，以及成长/规则层。本网站为演示构建。',
 'faq.q2': '可以下载吗？',
 'faq.a2': '暂未提供。没有下载链接，因为还没有发布构建。路线图将其标注为即将推出。',
@@ -118,7 +119,7 @@ window.HS_LOCALES['zh-CN'] = {
 /* footer */
 'foot.desc': '个人非商业软件工程项目——交互演示与模拟控制中心。',
 'foot.product': '产品', 'foot.resources': '资源', 'foot.status': '状态',
-'foot.base': 'HOTSCREEN V2——个人非商业工程演示。暂无下载。',
+'foot.base': '序帷 SYNVEIL——个人非商业工程演示。暂无下载。',
 'foot.build': 'v2.0.0-demo · 静态构建',
 'foot.comingSoon': '即将推出',
 /* docs */

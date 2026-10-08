@@ -74,7 +74,7 @@ function fmtNum(n){
 /* display-name helpers (internal values stay English) */
 const zoneName = id => t('zones.'+id);
 const expName  = e => ({Clear:t('exp.clear'),Monitored:t('exp.monitored'),Filtered:t('exp.filtered')}[e]||e);
-const fxName   = n => ({Pixelate:t('fx.pixelate'),Blur:t('fx.blur'),'Solid Cover':t('fx.solid'),'Scanlines':t('fx.scanlines'),'None':t('fx.none')}[n]||n);
+const fxName   = n => ({Pixelate:t('fx.pixelate'),Blur:t('fx.blur'),'Solid Cover':t('fx.solid'),'Scanlines':t('fx.scanlines'),'Glitch':t('fx.glitch'),'Cel Shader':t('fx.cel'),'Cellular Noise':t('fx.cellular'),'None':t('fx.none')}[n]||n);
 const accName  = a => ({Granted:t('access.granted'),Leased:t('access.leased')}[a]||a);
 
 /* ---------------- Mock Data Provider (demo data only) ---------------- */
@@ -185,6 +185,13 @@ function paintPattern(ctx, w, h, variant){
   ctx.strokeStyle = 'rgba(48,216,230,.14)'; ctx.lineWidth = 1;
   for(let x=0;x<w;x+=24){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
   for(let y=0;y<h;y+=24){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  /* soft radial light orb + diagonal sheen: gives Cel banding and Cellular overlay something to work with */
+  const rg = ctx.createRadialGradient(w*0.72, h*0.28, 8, w*0.72, h*0.28, w*0.46);
+  rg.addColorStop(0,'rgba(150,190,240,0.34)'); rg.addColorStop(1,'rgba(150,190,240,0)');
+  ctx.fillStyle = rg; ctx.fillRect(0,0,w,h);
+  const dg = ctx.createLinearGradient(0,h,w,0);
+  dg.addColorStop(0,'rgba(48,216,230,0.10)'); dg.addColorStop(0.5,'rgba(0,0,0,0)'); dg.addColorStop(1,'rgba(215,76,91,0.10)');
+  ctx.fillStyle = dg; ctx.fillRect(0,0,w,h);
   const cols = ['#30D8E6','#D74C5B','#33CB99','#F3B35D'];
   if(variant===0){
     cols.forEach((c,i)=>{ ctx.fillStyle=c+'55';
@@ -228,8 +235,193 @@ function renderStack(src, dst, stack){
     }else if(fx.name==='Scanlines'){
       c.fillStyle = 'rgba(0,0,0,'+((fx.params.opacity|0)/100)+')';
       for(let y=0;y<h;y+=4) c.fillRect(0, y, w, 1.5);
+    }else if(fx.name==='Glitch'){
+      applyGlitch(c, w, h, fx.params||{});
+    }else if(fx.name==='Cel Shader'){
+      applyCel(c, w, h, fx.params||{});
+    }else if(fx.name==='Cellular Noise'){
+      applyCellular(c, w, h, fx.params||{});
     }
   });
+}
+
+/* ---------------- Seeded RNG (deterministic procedural effects) ---------------- */
+function rng32(seed){
+  let a = (seed|0) >>> 0;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/* animation frame for Glitch (reset on route change; 0 = static) */
+const FX_ANIM = { frame: 0 };
+function mkCanvas(w, h){ const cv = document.createElement('canvas'); cv.width = w; cv.height = h; return cv; }
+
+/* ---------------- Glitch: seeded digital tearing ----------------
+   Bands -> blocks -> RGB split -> sparse noise. intensity=0 is a no-op.
+   Deterministic for fixed (seed, FX_ANIM.frame). */
+function applyGlitch(c, w, h, p){
+  const intensity = Math.max(0, Math.min(100, p.intensity|0));
+  if(intensity <= 0) return;
+  const rnd = rng32((p.seed|0) + FX_ANIM.frame * 7919);
+  const disp = Math.max(0, Math.min(40, p.displacement|0));
+  const rgb  = Math.max(0, Math.min(20, p.rgbSplit|0));
+  const blk  = Math.max(4, Math.min(64, p.blockSize|0));
+  const tmp = mkCanvas(w, h), tc = tmp.getContext('2d');
+  tc.drawImage(c.canvas, 0, 0);
+  /* 1. horizontal displacement bands */
+  const bands = 2 + Math.round(intensity/100 * 14);
+  for(let i=0;i<bands;i++){
+    const bh = Math.max(2, Math.round(blk * (0.3 + rnd()*1.2)));
+    const y = Math.floor(rnd() * Math.max(1, h - bh));
+    const dx = Math.round((rnd()*2-1) * disp * (0.3 + intensity/100));
+    if(dx===0) continue;
+    const strip = tc.getImageData(0, y, w, bh);
+    tc.clearRect(0, y, w, bh);
+    tc.putImageData(strip, dx, y);
+  }
+  /* 2. block corruption: displaced copies or solid glitch blocks */
+  const nBlocks = Math.round(intensity/100 * 10);
+  const cols = [[48,216,230],[215,76,91],[243,179,93],[232,237,243]];
+  for(let i=0;i<nBlocks;i++){
+    const bw = blk, bh = Math.max(4, Math.round(blk*(0.5+rnd())));
+    const x = Math.floor(rnd()*Math.max(1,w-bw)), y = Math.floor(rnd()*Math.max(1,h-bh));
+    if(rnd() < 0.45){
+      const col = cols[Math.floor(rnd()*cols.length)];
+      tc.fillStyle = 'rgba('+col[0]+','+col[1]+','+col[2]+','+(0.45+rnd()*0.5).toFixed(2)+')';
+      tc.fillRect(x, y, bw, bh);
+    }else{
+      const sx = Math.floor(rnd()*Math.max(1,w-bw)), sy = Math.floor(rnd()*Math.max(1,h-bh));
+      tc.drawImage(tmp, sx, sy, bw, bh, x, y, bw, bh);
+    }
+  }
+  /* 3. RGB channel split (per-pixel, single pass) */
+  if(rgb > 0){
+    const amt = Math.max(1, Math.round(rgb * (0.4 + intensity/100*0.6)));
+    const img = tc.getImageData(0, 0, w, h), d = img.data;
+    const src = new Uint8ClampedArray(d);
+    for(let y=0;y<h;y++){
+      const row = y*w;
+      for(let x=0;x<w;x++){
+        const o = (row+x)*4;
+        const xr = x-amt < 0 ? 0 : x-amt, xb = x+amt >= w ? w-1 : x+amt;
+        d[o] = src[(row+xr)*4];
+        d[o+2] = src[(row+xb)*4+2];
+      }
+    }
+    tc.putImageData(img, 0, 0);
+  }
+  /* 4. sparse digital noise */
+  const nNoise = Math.round(intensity * 6);
+  for(let i=0;i<nNoise;i++){
+    const x = Math.floor(rnd()*w), y = Math.floor(rnd()*h), v = Math.floor(rnd()*255);
+    tc.fillStyle = rnd()<0.5 ? 'rgb('+v+','+v+','+v+')' : 'rgba(48,216,230,0.8)';
+    tc.fillRect(x, y, 2, 2);
+  }
+  c.drawImage(tmp, 0, 0);
+}
+
+/* ---------------- Cel Shader: toon quantization + Sobel ink outlines ----------------
+   blend=0 is a no-op. Distinct from Pixelate: flat color bands, not enlarged blocks. */
+function applyCel(c, w, h, p){
+  const blend = Math.max(0, Math.min(100, p.blend|0))/100;
+  if(blend <= 0) return;
+  const levels = Math.max(2, Math.min(12, p.levels|0));
+  const edgeT = Math.max(0, Math.min(100, p.edgeThreshold|0));
+  const outline = Math.max(0, Math.min(100, p.outline|0))/100;
+  const sat = Math.max(0, Math.min(200, p.saturation|0))/100;
+  const img = c.getImageData(0, 0, w, h), d = img.data, n = w*h;
+  const lum = new Float32Array(n);
+  for(let i=0;i<n;i++){ const o=i*4; lum[i] = 0.2126*d[o]+0.7152*d[o+1]+0.0722*d[o+2]; }
+  const thr = Math.pow(1-edgeT/100, 2) * 600;
+  const orig = new Uint8ClampedArray(d);
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i = y*w+x, o = i*4, L = lum[i];
+      /* quantize luminance into flat bands, scale rgb to preserve hue */
+      const q = Math.min(levels-1, Math.floor(L/256*levels));
+      const qL = (q+0.5)/levels*255, s = L>1 ? qL/L : 1;
+      let r = d[o]*s, g = d[o+1]*s, b = d[o+2]*s;
+      const g2 = 0.2126*r+0.7152*g+0.0722*b;
+      r = g2+(r-g2)*sat; g = g2+(g-g2)*sat; b = g2+(b-g2)*sat;
+      /* Sobel edge -> ink outline */
+      if(outline > 0 && x>0 && x<w-1 && y>0 && y<h-1){
+        const gx = -lum[i-w-1]-2*lum[i-1]-lum[i+w-1]+lum[i-w+1]+2*lum[i+1]+lum[i+w+1];
+        const gy = -lum[i-w-1]-2*lum[i-w]-lum[i-w+1]+lum[i+w-1]+2*lum[i+w]+lum[i+w+1];
+        const mag = Math.sqrt(gx*gx+gy*gy);
+        if(mag > thr){
+          const k = Math.min(1, (mag-thr)/300) * outline, ik = 1-k;
+          r*=ik; g*=ik; b*=ik;
+        }
+      }
+      d[o]   = orig[o]  +(r-orig[o])  *blend;
+      d[o+1] = orig[o+1]+(g-orig[o+1])*blend;
+      d[o+2] = orig[o+2]+(b-orig[o+2])*blend;
+    }
+  }
+  c.putImageData(img, 0, 0);
+}
+
+/* ---------------- Cellular Noise: 2D Voronoi / Worley ----------------
+   opacity=0 is a no-op. F1/F2 field cached per (size, jitter, seed). */
+const worleyCache = new Map();
+function worleyField(w, h, scale, jitter01, seed){
+  const key = w+'x'+h+'|'+scale+'|'+jitter01.toFixed(3)+'|'+seed;
+  const hit = worleyCache.get(key);
+  if(hit) return hit;
+  const rnd = rng32(seed);
+  const gw = Math.ceil(w/scale)+2, gh = Math.ceil(h/scale)+2;
+  const px = new Float32Array(gw*gh), py = new Float32Array(gw*gh);
+  for(let j=0;j<gh;j++) for(let i=0;i<gw;i++){
+    const k = j*gw+i;
+    px[k] = (i+0.5+(rnd()*2-1)*jitter01*0.5)*scale;
+    py[k] = (j+0.5+(rnd()*2-1)*jitter01*0.5)*scale;
+  }
+  const f1 = new Float32Array(w*h), f2 = new Float32Array(w*h), maxD = scale*1.5;
+  for(let y=0;y<h;y++){
+    const cy = Math.floor(y/scale)+1;
+    for(let x=0;x<w;x++){
+      const cx = Math.floor(x/scale)+1;
+      let b1=1e12, b2=1e12;
+      for(let j=-1;j<=1;j++) for(let i=-1;i<=1;i++){
+        const k = (cy+j)*gw+(cx+i);
+        const dx = px[k]-x, dy = py[k]-y, dd = dx*dx+dy*dy;
+        if(dd<b1){ b2=b1; b1=dd; } else if(dd<b2){ b2=dd; }
+      }
+      const idx = y*w+x;
+      f1[idx] = Math.sqrt(b1)/maxD; f2[idx] = Math.sqrt(b2)/maxD;
+    }
+  }
+  const e = { f1:f1, f2:f2 };
+  worleyCache.set(key, e);
+  if(worleyCache.size > 4) worleyCache.delete(worleyCache.keys().next().value);
+  return e;
+}
+function applyCellular(c, w, h, p){
+  const opacity = Math.max(0, Math.min(100, p.opacity|0))/100;
+  if(opacity <= 0) return;
+  const scale = Math.max(4, Math.min(40, p.cellScale|0));
+  const jitter = Math.max(0, Math.min(100, p.jitter|0))/100;
+  const contrast = Math.max(0, Math.min(200, p.contrast|0))/100;
+  const edgeS = Math.max(0, Math.min(100, p.edge|0))/100;
+  const fld = worleyField(w, h, scale, jitter, p.seed|0);
+  const f1 = fld.f1, f2 = fld.f2;
+  const img = c.getImageData(0, 0, w, h), d = img.data, n = w*h;
+  const edgeW = 0.16;
+  for(let i=0;i<n;i++){
+    let v = 0.5 + (Math.min(1, f1[i])-0.5)*contrast;
+    v = v<0?0:v>1?1:v;
+    let pr = 28+v*92, pgc = 58+v*112, pb = 78+v*122;
+    const ek = Math.pow(Math.max(0, 1-(f2[i]-f1[i])/edgeW), 1.5)*edgeS;
+    pr += (150-pr)*ek; pgc += (232-pgc)*ek; pb += (242-pb)*ek;
+    const o = i*4;
+    d[o]   += (pr -d[o])  *opacity;
+    d[o+1] += (pgc-d[o+1])*opacity;
+    d[o+2] += (pb -d[o+2])*opacity;
+  }
+  c.putImageData(img, 0, 0);
 }
 
 /* ---------------- Router ---------------- */
@@ -257,6 +449,7 @@ function _route(){
   document.body.classList.remove('in-app');
   if(diagTimer && h !== '#/app/diagnostics'){ clearInterval(diagTimer); diagTimer = null; }
   if(heroTimer && h.indexOf('#/')===0 && h !== '#/'){ clearInterval(heroTimer); heroTimer = null; }
+  stopFxAnim();
   if(h === '#/' || h === '#'){ window.scrollTo(0,0); renderMarketingHome(root); return; }
   if(h === '#/demo'){ window.scrollTo(0,0); renderDemo(root); return; }
   if(h === '#/docs'){ window.scrollTo(0,0); renderDocs(root); return; }
@@ -454,7 +647,8 @@ function renderDocs(root){
 
   '<div class="panel"><h3>'+t('docs.s3t')+'</h3><p class="psub">'+t('docs.s3sub')+'</p>'+
   '<table class="tbl"><tr><th>'+t('docs.thFilter')+'</th><th>'+t('docs.thParams')+'</th><th>'+t('docs.thStatus')+'</th></tr>'+
-  [['Pixelate','size 2–40'],['Blur','radius 1–24'],['Solid Cover','opacity 10–100%'],['Scanlines','opacity 5–60%']].map(r=>
+  [['Pixelate','size 2–40'],['Blur','radius 1–24'],['Solid Cover','opacity 10–100%'],['Scanlines','opacity 5–60%'],
+   ['Glitch','intensity 0–100 · rgb 0–20px · 6 params'],['Cel Shader','levels 2–12 · blend 0–100% · 5 params'],['Cellular Noise','scale 4–40 · opacity 0–100% · 6 params']].map(r=>
   '<tr><td>'+fxName(r[0])+'</td><td class="mono">'+r[1]+'</td><td><span class="badge badge-live">'+t('docs.working')+'</span></td></tr>').join('')+'</table></div>'+
 
   '<div class="panel"><h3>'+t('docs.s4t')+'</h3>'+
@@ -467,6 +661,16 @@ function renderDocs(root){
 
 /* ---------------- Interactive Demo ---------------- */
 const DemoState = { variant:0, fx:'Pixelate', param:14, level:4, compare:true };
+/* demo: one main slider param per filter (other params use FX_LIB defaults) */
+const DEMO_FX_ORDER = ['Pixelate','Blur','Solid Cover','Glitch','Cel Shader','Cellular Noise'];
+const DEMO_FX = {
+  'Pixelate':      {key:'size',      min:2,  max:40,  def:14,  labelKey:'fx.pSize'},
+  'Blur':          {key:'radius',    min:1,  max:24,  def:8,   labelKey:'fx.pRadius'},
+  'Solid Cover':   {key:'opacity',   min:10, max:90,  def:40,  labelKey:'fx.pOpacity'},
+  'Glitch':        {key:'intensity', min:0,  max:100, def:35,  labelKey:'fx.pIntensity'},
+  'Cel Shader':    {key:'blend',     min:0,  max:100, def:100, labelKey:'fx.pBlend'},
+  'Cellular Noise':{key:'opacity',   min:0,  max:100, def:75,  labelKey:'fx.pOpacity'},
+};
 function renderDemo(root){
   root.innerHTML = marketingNav() +
   '<div class="demo-head"><span class="badge badge-demo"><span class="dot"></span>'+t('demo.badge')+'</span>'+
@@ -481,8 +685,9 @@ function renderDemo(root){
   '<div><div class="panel"><h3>'+t('demo.pattern')+'</h3><p class="psub">'+t('demo.patternSub')+'</p>'+
     '<div class="seg" id="dVar"><button data-v="0" class="on">'+t('demo.orbs')+'</button><button data-v="1">'+t('demo.bars')+'</button><button data-v="2">'+t('demo.wave')+'</button></div></div>'+
   '<div class="panel"><h3>'+t('demo.filter')+'</h3><p class="psub">'+t('demo.filterSub')+'</p>'+
-    '<div class="seg" id="dFx"><button data-f="Pixelate" class="on">'+fxName('Pixelate')+'</button><button data-f="Blur">'+fxName('Blur')+'</button><button data-f="Solid Cover">'+fxName('Solid Cover')+'</button></div>'+
-    '<div class="field"><label>'+t('demo.intensity')+'</label><div class="row"><input type="range" id="dParam" min="2" max="40" value="14" aria-label="'+esc(t('demo.intensity'))+'"><output id="dParamOut">14</output></div></div></div>'+
+    '<div class="field"><select class="sel" id="dFxSel" aria-label="'+esc(t('demo.filter'))+'">'+
+    DEMO_FX_ORDER.map(n=>'<option value="'+n+'"'+(n===DemoState.fx?' selected':'')+'>'+fxName(n)+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label id="dParamLabel">'+t(DEMO_FX[DemoState.fx].labelKey)+'</label><div class="row"><input type="range" id="dParam" min="'+DEMO_FX[DemoState.fx].min+'" max="'+DEMO_FX[DemoState.fx].max+'" value="'+DEMO_FX[DemoState.fx].def+'" aria-label="'+esc(t(DEMO_FX[DemoState.fx].labelKey))+'"><output id="dParamOut">'+DEMO_FX[DemoState.fx].def+'</output></div></div></div>'+
   '<div class="panel"><h3>'+t('demo.globalLevel')+' <span class="mono" id="dLvlOut" style="color:var(--cyan)">4</span></h3>'+
     '<p class="psub">'+t('demo.levelSub')+'</p>'+
     '<div class="levels" id="dLevels">'+Array.from({length:N_LEVELS},(_,i)=>'<div class="lvl'+(i===4?' cur':'')+'" data-l="'+i+'"><b>'+i+'</b><small>'+esc(lvlName(i))+'</small></div>').join('')+'</div>'+
@@ -493,11 +698,13 @@ function renderDemo(root){
   const src=$('#dSrc'), dst=$('#dDst');
   const paint=()=>paintPattern(src.getContext('2d'), src.width, src.height, DemoState.variant);
   const draw=()=>{
+    const cfg=DEMO_FX[DemoState.fx], lib=FX_LIB.find(l=>l.name===DemoState.fx);
+    const params={};
+    Object.keys(lib.params).forEach(k=>{ const pd=lib.params[k];
+      params[k]=(pd.def!=null?pd.def:Math.round((pd.min+pd.max)/2)); });
     const v=+$('#dParam').value; $('#dParamOut').textContent=v;
-    const st = DemoState.fx==='Pixelate' ? [{name:'Pixelate',on:true,params:{size:v}}]
-      : DemoState.fx==='Blur' ? [{name:'Blur',on:true,params:{radius:v}}]
-      : [{name:'Solid Cover',on:true,params:{opacity:Math.min(90,v*2)}}];
-    renderStack(src, dst, st);
+    params[cfg.key]=v;
+    renderStack(src, dst, [{name:DemoState.fx,on:true,params:params}]);
     $('#dCap').textContent = t('demo.filtered',{fx:fxName(DemoState.fx)});
     const feed=$('#dFeed');
     feed.innerHTML = '<div class="ln"><span class="ts">now</span><span class="inf">'+esc(t('demo.lvl'+DemoState.level))+'</span></div>'+
@@ -506,10 +713,13 @@ function renderDemo(root){
   };
   $$('#dVar button').forEach(b=>b.onclick=()=>{ $$('#dVar button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); DemoState.variant=+b.dataset.v; paint(); draw(); });
-  $$('#dFx button').forEach(b=>b.onclick=()=>{ $$('#dFx button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on'); DemoState.fx=b.dataset.f;
-    const r=$('#dParam'); if(DemoState.fx==='Solid Cover'){ r.min=5; r.max=45; r.value=20; } else { r.min=2; r.max=40; r.value=14; }
-    draw(); });
+  $('#dFxSel').onchange=e=>{
+    DemoState.fx=e.target.value;
+    const cfg=DEMO_FX[DemoState.fx], r=$('#dParam');
+    r.min=cfg.min; r.max=cfg.max; r.value=cfg.def;
+    $('#dParamLabel').textContent=t(cfg.labelKey);
+    r.setAttribute('aria-label', t(cfg.labelKey));
+    draw(); };
   $('#dParam').oninput = draw;
   $$('#dLevels .lvl').forEach(el=>el.onclick=()=>{ $$('#dLevels .lvl').forEach(x=>x.classList.remove('cur'));
     el.classList.add('cur'); DemoState.level=+el.dataset.l;
@@ -661,7 +871,7 @@ function zonePanel(z){
   '<div class="field"><label>'+t('bp.stage')+' · <output id="zStageOut" style="color:var(--cyan)">'+z.stage+'</output> / 6</label>'+
   '<div class="row"><input type="range" id="zStage" min="0" max="6" value="'+z.stage+'" style="flex:1" aria-label="'+esc(t('bp.stage'))+'"></div></div>'+
   '<div class="trow"><div class="tl">'+t('bp.effect')+'</div>'+
-  '<select class="sel" id="zFx" aria-label="'+esc(t('bp.effect'))+'">'+['None','Pixelate','Blur','Solid Cover'].map(e=>'<option value="'+e+'"'+(e===z.effect?' selected':'')+'>'+fxName(e)+'</option>').join('')+'</select></div>'+
+  '<select class="sel" id="zFx" aria-label="'+esc(t('bp.effect'))+'">'+['None','Pixelate','Blur','Solid Cover','Glitch','Cel Shader','Cellular Noise'].map(e=>'<option value="'+e+'"'+(e===z.effect?' selected':'')+'>'+fxName(e)+'</option>').join('')+'</select></div>'+
   '<hr class="hr"><div class="grid2">'+
   '<div class="stat"><div class="k">'+t('bp.xp')+'</div><div class="v" style="font-size:20px">'+fmtNum(z.xp)+'</div></div>'+
   '<div class="stat"><div class="k">'+t('bp.credits')+'</div><div class="v am" style="font-size:20px">◉ '+fmtNum(z.credits)+'</div></div></div>'+
@@ -674,6 +884,36 @@ const FX_LIB = [
   { name:'Blur',        descKey:'fx.dBlur',        params:{ radius:{labelKey:'fx.pRadius', min:1, max:24} } },
   { name:'Solid Cover', descKey:'fx.dSolid',       params:{ opacity:{labelKey:'fx.pOpacity', min:10, max:100} } },
   { name:'Scanlines',   descKey:'fx.dScanlines',   params:{ opacity:{labelKey:'fx.pOpacity', min:5, max:60} } },
+  { name:'Glitch', descKey:'fx.dGlitch', params:{
+    intensity:{labelKey:'fx.pIntensity', min:0, max:100, def:35},
+    rgbSplit:{labelKey:'fx.pRgbSplit', min:0, max:20, def:5},
+    displacement:{labelKey:'fx.pDisplacement', min:0, max:40, def:12},
+    blockSize:{labelKey:'fx.pBlockSize', min:4, max:64, def:16},
+    seed:{labelKey:'fx.pSeed', min:0, max:999, def:42},
+    animSpeed:{labelKey:'fx.pAnimSpeed', min:0, max:5, def:0} } },
+  { name:'Cel Shader', descKey:'fx.dCel', params:{
+    levels:{labelKey:'fx.pLevels', min:2, max:12, def:5},
+    edgeThreshold:{labelKey:'fx.pEdgeThreshold', min:0, max:100, def:35},
+    outline:{labelKey:'fx.pOutline', min:0, max:100, def:60},
+    saturation:{labelKey:'fx.pSaturation', min:0, max:200, def:110},
+    blend:{labelKey:'fx.pBlend', min:0, max:100, def:100} } },
+  { name:'Cellular Noise', descKey:'fx.dCellular', params:{
+    cellScale:{labelKey:'fx.pCellScale', min:4, max:40, def:14},
+    jitter:{labelKey:'fx.pJitter', min:0, max:100, def:65},
+    contrast:{labelKey:'fx.pContrast', min:0, max:200, def:120},
+    edge:{labelKey:'fx.pEdge', min:0, max:100, def:55},
+    opacity:{labelKey:'fx.pOpacity', min:0, max:100, def:75},
+    seed:{labelKey:'fx.pSeed', min:0, max:999, def:42} } },
+];
+/* glitch animation timer (effects page only; cleared on route change) */
+let fxAnimTimer = null;
+function stopFxAnim(){ if(fxAnimTimer){ clearInterval(fxAnimTimer); fxAnimTimer = null; } FX_ANIM.frame = 0; }
+/* named presets (internal filter names + full param sets stay English/stable) */
+const FX_PRESETS = [
+  { key:'fx.presetName', stack:[['Blur',{radius:10}],['Scanlines',{opacity:22}]] },
+  { key:'fx.presetTear',  stack:[['Glitch',{intensity:55,rgbSplit:8,displacement:20,blockSize:16,seed:42,animSpeed:0}]] },
+  { key:'fx.presetToon',  stack:[['Cel Shader',{levels:4,edgeThreshold:30,outline:75,saturation:115,blend:100}]] },
+  { key:'fx.presetField', stack:[['Cellular Noise',{cellScale:14,jitter:65,contrast:120,edge:55,opacity:75,seed:42}]] },
 ];
 APP_RENDER.effects = function(ws){
   ws.innerHTML = pageHead(t('fx.title'), t('fx.sub'),
@@ -688,7 +928,9 @@ APP_RENDER.effects = function(ws){
   '<div class="panel"><h3>'+t('fx.stack')+'</h3><p class="psub">'+t('fx.stackSub')+'</p>'+
     '<div class="stack" id="fxStack"></div>'+
     '<div class="flex gap8 mt16 wrap"><button class="btn btn-ghost btn-sm" id="fxReset">'+t('fx.reset')+'</button>'+
-    '<button class="btn btn-ghost btn-sm" id="fxPreset">'+t('fx.preset')+'</button></div></div>'+
+    '<select class="sel" id="fxPresetSel" aria-label="'+esc(t('fx.presetPick'))+'" style="max-width:230px">'+
+    '<option value="">'+t('fx.presetPick')+'</option>'+
+    FX_PRESETS.map((pr,i)=>'<option value="'+i+'">'+t(pr.key)+'</option>').join('')+'</select></div></div>'+
   '<div class="panel"><h3>'+t('fx.lib')+'</h3><p class="psub">'+t('fx.libSub')+'</p><div id="fxLib"></div></div>'+
   '<div class="panel"><h3>'+t('fx.params')+'</h3><p class="psub">'+t('fx.paramsSub')+'</p><div id="fxParams"></div></div>'+
   '</div>';
@@ -698,7 +940,21 @@ APP_RENDER.effects = function(ws){
     renderStack(src, $('#eDst'), DB.stack);
     const names = DB.stack.filter(f=>f.on).map(f=>fxName(f.name)).join(' → ') || t('fx.afterEmpty');
     $('#eAfterCap').textContent = t('fx.after',{names:names});
+    syncFxAnim();
   };
+  /* Glitch animation: only while an enabled Glitch has animSpeed>0, frame-limited,
+     honors reduced-motion, no stray rAF/interval after stop or route change. */
+  function syncFxAnim(){
+    let speed=0;
+    DB.stack.forEach(f=>{ if(f.on && f.name==='Glitch') speed=Math.max(speed, f.params.animSpeed|0); });
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!reduce && speed>0 && !fxAnimTimer){
+      const iv = Math.max(120, 700-speed*110);
+      fxAnimTimer = setInterval(()=>{ FX_ANIM.frame++; draw(); }, iv);
+    }else if((reduce || speed<=0) && fxAnimTimer){
+      stopFxAnim(); draw();
+    }
+  }
   const renderList=()=>{
     $('#fxStack').innerHTML = DB.stack.map((f,i)=>
       '<div class="fxitem" draggable="true" data-id="'+f.id+'"><span class="grip">⋮⋮</span>'+
@@ -750,15 +1006,17 @@ APP_RENDER.effects = function(ws){
     '<button class="btn btn-ghost btn-sm" data-add="'+l.name+'">'+t('fx.add')+'</button></div>').join('');
   $$('#fxLib [data-add]').forEach(b=>b.onclick=()=>{
     const lib=FX_LIB.find(l=>l.name===b.dataset.add);
-    const params={}; Object.keys(lib.params).forEach(k=>params[k]=Math.round((lib.params[k].min+lib.params[k].max)/2));
+    const params={}; Object.keys(lib.params).forEach(k=>{ const pd=lib.params[k];
+      params[k] = (pd.def!=null ? pd.def : Math.round((pd.min+pd.max)/2)); });
     DB.stack.push({ id:'fx'+Date.now(), name:lib.name, on:true, params });
     renderList(); renderParams(); toast(t('fx.added',{name:fxName(lib.name)}),'ok'); });
   $('#fxReset').onclick=()=>confirmModal(t('fx.resetTitle'), t('fx.resetBody'), t('modal.reset'), ()=>{
     DB.stack=[{id:'fx1',name:'Pixelate',on:true,params:{size:14}},{id:'fx2',name:'Blur',on:false,params:{radius:8}},{id:'fx3',name:'Solid Cover',on:false,params:{opacity:85}}];
     renderList(); renderParams(); toast(t('fx.resetDone'),'ok'); });
-  $('#fxPreset').onclick=()=>{
-    DB.stack=[{id:'fx'+Date.now(),name:'Blur',on:true,params:{radius:10}},{id:'fx'+(Date.now()+1),name:'Scanlines',on:true,params:{opacity:22}}];
-    renderList(); renderParams(); toast(t('fx.presetDone'),'ok'); };
+  $('#fxPresetSel').onchange=e=>{
+    const pr=FX_PRESETS[+e.target.value]; e.target.value=''; if(!pr) return;
+    DB.stack=pr.stack.map((s,i)=>({id:'fx'+Date.now()+i, name:s[0], on:true, params:Object.assign({},s[1])}));
+    renderList(); renderParams(); toast(t('fx.presetDone',{name:t(pr.key)}),'ok'); };
   renderList(); renderParams();
 };
 

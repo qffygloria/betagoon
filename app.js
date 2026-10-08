@@ -787,12 +787,12 @@ function applyOil(c, w, h, p){
     }
     d[o]=rr; d[o+1]=gg; d[o+2]=bb;
   }
-  /* final blend with the true original */
-  if(blend < 1){
-    for(let i=0;i<n;i++){
-      const o=i*4;
-      d[o]+= (orig[o]-d[o])*blend; d[o+1]+=(orig[o+1]-d[o+1])*blend; d[o+2]+=(orig[o+2]-d[o+2])*blend;
-    }
+  /* final blend with the true original: out = orig*(1-blend) + processed*blend.
+     Continuous from 0 (original) to 1 (full oil); RGB and Alpha all interpolated. */
+  for(let i=0;i<n;i++){
+    const o=i*4, ib=1-blend;
+    d[o]=orig[o]*ib+d[o]*blend; d[o+1]=orig[o+1]*ib+d[o+1]*blend;
+    d[o+2]=orig[o+2]*ib+d[o+2]*blend; d[o+3]=orig[o+3]*ib+d[o+3]*blend;
   }
   c.putImageData(img, 0, 0);
 }
@@ -1394,6 +1394,12 @@ APP_RENDER.effects = function(ws){
     $('#eAfterCap').textContent = t('fx.after',{names:names});
     syncFxAnim();
   };
+  /* coalesce rapid slider input into one render per animation frame.
+     Final output is identical (latest param values); only redundant
+     intermediate renders are dropped. */
+  let drawQueued=false;
+  const drawSoon=()=>{ if(drawQueued) return; drawQueued=true;
+    requestAnimationFrame(()=>{ drawQueued=false; draw(); }); };
   /* Glitch animation: only while an enabled Glitch has animSpeed>0, frame-limited,
      honors reduced-motion, no stray rAF/interval after stop or route change. */
   function syncFxAnim(){
@@ -1460,7 +1466,7 @@ APP_RENDER.effects = function(ws){
     }).join('') || '<p class="muted">'+t('fx.noParams')+'</p>';
     $$('#fxParams input[type=range]').forEach(r=>r.oninput=()=>{
       const f=DB.stack.find(x=>x.id===r.dataset.f); f.params[r.dataset.p]=+r.value;
-      r.nextElementSibling.textContent=r.value; draw(); });
+      r.nextElementSibling.textContent=r.value; drawSoon(); });
     $$('#fxParams select[data-t="select"]').forEach(s=>s.onchange=()=>{
       const f=DB.stack.find(x=>x.id===s.dataset.f); f.params[s.dataset.p]=s.value;
       renderParams(); draw(); });
@@ -1483,8 +1489,8 @@ APP_RENDER.effects = function(ws){
     DB.stack=pr.stack.map((s,i)=>({id:'fx'+Date.now()+i, name:s[0], on:true, params:Object.assign({},s[1])}));
     renderList(); renderParams(); toast(t('fx.presetDone',{name:t(pr.key)}),'ok'); };
   $('#maskShape').onchange=e=>{ maskShape=e.target.value; draw(); };
-  $('#maskSize').oninput=e=>{ maskSize=+e.target.value; $('#maskSizeOut').textContent=e.target.value; draw(); };
-  $('#maskFeather').oninput=e=>{ maskFeather=+e.target.value; $('#maskFeatherOut').textContent=e.target.value; draw(); };
+  $('#maskSize').oninput=e=>{ maskSize=+e.target.value; $('#maskSizeOut').textContent=e.target.value; drawSoon(); };
+  $('#maskFeather').oninput=e=>{ maskFeather=+e.target.value; $('#maskFeatherOut').textContent=e.target.value; drawSoon(); };
   renderList(); renderParams();
 };
 

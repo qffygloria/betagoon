@@ -822,7 +822,7 @@ function _route(){
   document.body.classList.remove('in-app');
   if(diagTimer && h !== '#/app/diagnostics'){ clearInterval(diagTimer); diagTimer = null; }
   if(heroTimer && h.indexOf('#/')===0 && h !== '#/'){ clearInterval(heroTimer); heroTimer = null; }
-  stopFxAnim();
+  stopFxAnim(); cancelFxDraw();
   if(h === '#/' || h === '#'){ window.scrollTo(0,0); renderMarketingHome(root); return; }
   if(h === '#/demo'){ window.scrollTo(0,0); renderDemo(root); return; }
   if(h === '#/docs'){ window.scrollTo(0,0); renderDocs(root); return; }
@@ -1309,6 +1309,9 @@ const FX_LIB = [
 /* glitch animation timer (effects page only; cleared on route change) */
 let fxAnimTimer = null;
 function stopFxAnim(){ if(fxAnimTimer){ clearInterval(fxAnimTimer); fxAnimTimer = null; } FX_ANIM.frame = 0; }
+/* pending coalesced preview render (Effects Studio drawSoon) */
+let fxDrawRaf = 0;
+function cancelFxDraw(){ if(fxDrawRaf){ cancelAnimationFrame(fxDrawRaf); fxDrawRaf = 0; } }
 /* named presets (internal filter names + full param sets stay English/stable) */
 const FX_PRESETS = [
   { key:'fx.presetName', stack:[['Blur',{radius:10}],['Scanlines',{opacity:22}]] },
@@ -1374,6 +1377,7 @@ APP_RENDER.effects = function(ws){
     return m;
   };
   const draw=()=>{
+    cancelFxDraw(); /* an immediate draw supersedes any pending coalesced one */
     $('#eBefore').getContext('2d').drawImage(src,0,0);
     const dst=$('#eDst');
     renderStack(src, dst, DB.stack);
@@ -1395,11 +1399,17 @@ APP_RENDER.effects = function(ws){
     syncFxAnim();
   };
   /* coalesce rapid slider input into one render per animation frame.
-     Final output is identical (latest param values); only redundant
-     intermediate renders are dropped. */
-  let drawQueued=false;
-  const drawSoon=()=>{ if(drawQueued) return; drawQueued=true;
-    requestAnimationFrame(()=>{ drawQueued=false; draw(); }); };
+     Final output is identical (latest param values); redundant renders dropped.
+     The frame id is tracked so route/language changes can cancel it, and the
+     callback verifies the page still exists before touching DOM or timers. */
+  const drawSoon=()=>{
+    if(fxDrawRaf) return;
+    fxDrawRaf=requestAnimationFrame(()=>{
+      fxDrawRaf=0;
+      if(!document.getElementById('eDst')) return; /* page gone: no dead-DOM access, no timer restart */
+      draw();
+    });
+  };
   /* Glitch animation: only while an enabled Glitch has animSpeed>0, frame-limited,
      honors reduced-motion, no stray rAF/interval after stop or route change. */
   function syncFxAnim(){

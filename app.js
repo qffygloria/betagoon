@@ -380,17 +380,37 @@ function vnoise2(x, y, seed){
   const u = xf*xf*(3-2*xf), v = yf*yf*(3-2*yf);
   return h(xi,yi)*(1-u)*(1-v) + h(xi+1,yi)*u*(1-v) + h(xi,yi+1)*(1-u)*v + h(xi+1,yi+1)*u*v;
 }
-/* small k-means over cell average colors (deterministic via seed) */
-function kmeansPalette(avg, nCells, k, seed){
+/* small k-means over color samples (deterministic via seed).
+   weights: optional per-sample weight (foreground-aware: high-chroma samples
+   count more, so small vivid foreground regions keep their palette entries). */
+function kmeansPalette(avg, nCells, k, seed, weights){
   const rnd = rng32(seed^0x51af);
   const cents = [], used = {};
   let guard = 0;
-  while(cents.length < k && guard++ < 200){
-    const i = Math.floor(rnd()*nCells);
+  /* weighted seeding: pick first center uniformly, rest weighted by weight*dist^2 */
+  while(cents.length < k && guard++ < 400){
+    let i;
+    if(!weights || cents.length===0 || rnd()<0.3){
+      i = Math.floor(rnd()*nCells);
+    }else{
+      /* k-means++ style: probability ~ weight * dist_to_nearest_center^2 */
+      let best=-1, bestScore=-1;
+      for(let t=0;t<8;t++){
+        const c = Math.floor(rnd()*nCells);
+        let bd=1e18;
+        for(let j=0;j<cents.length;j++){
+          const dr=avg[3*c]-cents[j][0], dg=avg[3*c+1]-cents[j][1], db=avg[3*c+2]-cents[j][2];
+          const dd=dr*dr+dg*dg+db*db; if(dd<bd) bd=dd;
+        }
+        const score=(weights?weights[c]:1)*bd;
+        if(score>bestScore){ bestScore=score; best=c; }
+      }
+      i = best;
+    }
     if(!used[i]){ used[i] = 1; cents.push([avg[3*i],avg[3*i+1],avg[3*i+2]]); }
   }
   const assign = new Uint8Array(nCells);
-  for(let it=0; it<12; it++){
+  for(let it=0; it<14; it++){
     for(let i=0;i<nCells;i++){
       let bi=0, bd=1e18;
       for(let j=0;j<cents.length;j++){
@@ -401,10 +421,44 @@ function kmeansPalette(avg, nCells, k, seed){
       assign[i]=bi;
     }
     const sum=new Float64Array(cents.length*3), cnt=new Float64Array(cents.length);
-    for(let i=0;i<nCells;i++){ const a=assign[i]; sum[3*a]+=avg[3*i]; sum[3*a+1]+=avg[3*i+1]; sum[3*a+2]+=avg[3*i+2]; cnt[a]++; }
+    for(let i=0;i<nCells;i++){
+      const a=assign[i], w=weights?weights[i]:1;
+      sum[3*a]+=avg[3*i]*w; sum[3*a+1]+=avg[3*i+1]*w; sum[3*a+2]+=avg[3*i+2]*w; cnt[a]+=w;
+    }
     for(let j=0;j<cents.length;j++) if(cnt[j]>0){ cents[j][0]=sum[3*j]/cnt[j]; cents[j][1]=sum[3*j+1]/cnt[j]; cents[j][2]=sum[3*j+2]/cnt[j]; }
   }
   return cents;
+}
+
+/* edge-aware smoothing: bilateral filter (preserves strong edges, flattens
+   interiors). Operates in place on a Uint8ClampedArray; range LUT for speed. */
+function bilateralSmooth(data, w, h, radius, sigmaS, sigmaR){
+  const out = new Uint8ClampedArray(data.length);
+  const s2 = 2*sigmaS*sigmaS;
+  const sw = new Float32Array((2*radius+1)*(2*radius+1));
+  for(let j=-radius;j<=radius;j++) for(let i=-radius;i<=radius;i++)
+    sw[(j+radius)*(2*radius+1)+(i+radius)] = Math.exp(-(i*i+j*j)/s2);
+  const rl = new Float32Array(763), r2 = 2*sigmaR*sigmaR;
+  for(let i=0;i<763;i++) rl[i] = Math.exp(-(i*256)/r2);
+  const W = 2*radius+1;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const o=(y*w+x)*4, cr=data[o], cg=data[o+1], cb=data[o+2];
+    let sr=0, sg=0, sb=0, ssum=0;
+    for(let j=-radius;j<=radius;j++){
+      const yy=y+j; if(yy<0||yy>=h) continue;
+      for(let i=-radius;i<=radius;i++){
+        const xx=x+i; if(xx<0||xx>=w) continue;
+        const oo=(yy*w+xx)*4;
+        const dr=data[oo]-cr, dg=data[oo+1]-cg, db=data[oo+2]-cb;
+        let di=(dr*dr+dg*dg+db*db)>>8; if(di>762) di=762;
+        const wt=sw[(j+radius)*W+(i+radius)]*rl[di];
+        sr+=data[oo]*wt; sg+=data[oo+1]*wt; sb+=data[oo+2]*wt; ssum+=wt;
+      }
+    }
+    const inv=1/Math.max(1e-6,ssum);
+    out[o]=sr*inv; out[o+1]=sg*inv; out[o+2]=sb*inv; out[o+3]=data[o+3];
+  }
+  data.set(out);
 }
 
 /* ---------------- Cel Shader: Palette Regions (new default) ----------------
@@ -423,26 +477,42 @@ function applyCelRegions(c, w, h, p){
   const variation = Math.max(0, Math.min(100, p.colorVariation==null?25:p.colorVariation))/100;
   const irregularity = Math.max(0, Math.min(100, p.edgeIrregularity==null?50:p.edgeIrregularity))/100;
   const smoothness = Math.max(0, Math.min(100, p.edgeSmoothness==null?60:p.edgeSmoothness))/100;
+  const structure = Math.max(0, Math.min(100, p.structure==null?60:p.structure))/100;
   const seed = p.seed|0;
   const img = c.getImageData(0, 0, w, h), d = img.data, n = w*h;
-  /* 1. palette */
+  /* 1. palette — foreground-aware: chroma-weighted sampling + weighted k-means,
+        so small vivid foreground regions keep their own palette entries */
   let palette;
   if(paletteName === 'original'){
-    const ns = Math.min(n, 4000), samp = new Float32Array(ns*3), rs = rng32(seed^0x51af);
-    for(let i=0;i<ns;i++){ const o=(Math.floor(rs()*n))*4; samp[3*i]=d[o]; samp[3*i+1]=d[o+1]; samp[3*i+2]=d[o+2]; }
-    palette = kmeansPalette(samp, ns, colorCount, seed);
+    const ns = Math.min(n, 5000), samp = new Float32Array(ns*3), sw = new Float32Array(ns);
+    const rs = rng32(seed^0x51af);
+    for(let i=0;i<ns;i++){
+      const o=(Math.floor(rs()*n))*4, r=d[o], g=d[o+1], b=d[o+2];
+      samp[3*i]=r; samp[3*i+1]=g; samp[3*i+2]=b;
+      const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+      const chroma=(mx-mn)/255;
+      sw[i]=0.12+0.88*Math.pow(chroma,0.7);
+    }
+    palette = kmeansPalette(samp, ns, colorCount, seed, sw);
   }else{
     palette = CEL_REF_PALETTE.slice(0, Math.min(colorCount, CEL_REF_PALETTE.length)).map(a=>a.slice());
   }
   const npal = palette.length;
-  /* 2. strongly smooth the image: downscale -> blur -> upscale (organic regions) */
-  const ds = Math.max(2, Math.min(12, Math.round(regionSize/3)));
-  const sw = Math.max(1, Math.round(w/ds)), sh = Math.max(1, Math.round(h/ds));
+  /* 2. edge-aware smoothing: bilateral filter at 2x downscale.
+        Strong edges survive (no halo, shapes keep geometry); flat interiors
+        merge into large organic regions. Structure Preservation controls the
+        range sigma: high SP keeps even fine edges, low SP merges aggressively. */
+  const ds = 2, sw2 = Math.max(1, Math.round(w/ds)), sh2 = Math.max(1, Math.round(h/ds));
   const tmp = mkCanvas(w, h); tmp.getContext('2d').putImageData(img, 0, 0);
-  const sc = mkCanvas(sw, sh), sx = sc.getContext('2d');
+  const sc = mkCanvas(sw2, sh2), sx = sc.getContext('2d');
   sx.imageSmoothingEnabled = true; sx.imageSmoothingQuality = 'high';
-  sx.drawImage(tmp, 0, 0, sw, sh);
-  sx.filter = 'blur(1.5px)'; sx.drawImage(sc, 0, 0); sx.drawImage(sc, 0, 0); sx.filter = 'none';
+  sx.drawImage(tmp, 0, 0, sw2, sh2);
+  const simg = sx.getImageData(0, 0, sw2, sh2), sd2 = simg.data;
+  const brad = Math.max(2, Math.min(8, Math.round(regionSize/4)));
+  const sigmaR = 10 + (1-structure)*70;
+  bilateralSmooth(sd2, sw2, sh2, brad, brad/2, sigmaR);
+  bilateralSmooth(sd2, sw2, sh2, brad, brad/2, sigmaR);
+  sx.putImageData(simg, 0, 0);
   const sm = mkCanvas(w, h), smx = sm.getContext('2d');
   smx.imageSmoothingEnabled = true; smx.imageSmoothingQuality = 'high';
   smx.drawImage(sc, 0, 0, w, h);
@@ -465,7 +535,7 @@ function applyCelRegions(c, w, h, p){
     const ix=Math.floor(fx), iy=Math.floor(fy), tx=fx-ix, ty=fy-iy, k=iy*nw+ix;
     return f[k]*(1-tx)*(1-ty)+f[k+1]*tx*(1-ty)+f[k+nw]*(1-tx)*ty+f[k+nw+1]*tx*ty;
   };
-  /* 4. per-pixel: perturbed smooth sample -> nearest palette -> flat color */
+  /* 4. per-pixel: perturbed edge-aware sample -> nearest palette -> flat color */
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const o=(y*w+x)*4;
@@ -489,9 +559,35 @@ function applyCelRegions(c, w, h, p){
   c.putImageData(img, 0, 0);
 }
 
+/* ---------------- Cel Shader: RGB Posterization ----------------
+   Pure per-channel quantization, exactly as the original shader:
+     cel_color = floor(base_color.rgb * color_steps) / color_steps
+   No UV modification, no noise, no blur, no palette — fully static.
+   blend=0 is a no-op. */
+function applyCelPosterize(c, w, h, p){
+  const blend = Math.max(0, Math.min(100, p.blend|0))/100;
+  if(blend <= 0) return;
+  const steps = Math.max(2, Math.min(16, p.steps|0 || 4));
+  const swap = (p.channelOrder || 'rgba') === 'bgra';
+  const img = c.getImageData(0, 0, w, h), d = img.data, n = w*h;
+  for(let i=0;i<n;i++){
+    const o=i*4;
+    const rq = Math.floor(d[o]/255*steps)/steps*255;
+    const gq = Math.floor(d[o+1]/255*steps)/steps*255;
+    const bq = Math.floor(d[o+2]/255*steps)/steps*255;
+    const pr = swap ? bq : rq, pb = swap ? rq : bq;
+    d[o]   += (pr -d[o])  *blend;
+    d[o+1] += (gq -d[o+1])*blend;
+    d[o+2] += (pb -d[o+2])*blend;
+  }
+  c.putImageData(img, 0, 0);
+}
+
 /* Cel Shader dispatcher: old configs (no mode) -> classic; new adds default to regions */
 function applyCel(c, w, h, p){
-  if((p.mode || 'classic') === 'regions') applyCelRegions(c, w, h, p);
+  const mode = p.mode || 'classic';
+  if(mode === 'regions') applyCelRegions(c, w, h, p);
+  else if(mode === 'rgb_posterize') applyCelPosterize(c, w, h, p);
   else applyCelClassic(c, w, h, p);
 }
 
@@ -1021,7 +1117,7 @@ function renderDocs(root){
   '<div class="panel"><h3>'+t('docs.s3t')+'</h3><p class="psub">'+t('docs.s3sub')+'</p>'+
   '<table class="tbl"><tr><th>'+t('docs.thFilter')+'</th><th>'+t('docs.thParams')+'</th><th>'+t('docs.thStatus')+'</th></tr>'+
   [['Pixelate','size 2–40'],['Blur','radius 1–24'],['Solid Cover','opacity 10–100%'],['Scanlines','opacity 5–60%'],
-   ['Glitch','intensity 0–100 · rgb 0–20px · 6 params'],['Cel Shader','classic / palette-regions · 2 modes'],['Cellular Noise','flat / fragments / overlay · 3 modes'],['Oil Painting','Kuwahara brush 1–8 · 8 params']].map(r=>
+   ['Glitch','intensity 0–100 · rgb 0–20px · 6 params'],['Cel Shader','rgb-posterize / palette-regions / classic · 3 modes'],['Cellular Noise','flat / fragments / overlay · 3 modes'],['Oil Painting','Kuwahara brush 1–8 · 8 params']].map(r=>
   '<tr><td>'+fxName(r[0])+'</td><td class="mono">'+r[1]+'</td><td><span class="badge badge-live">'+t('docs.working')+'</span></td></tr>').join('')+'</table></div>'+
 
   '<div class="panel"><h3>'+t('docs.s4t')+'</h3>'+
@@ -1033,7 +1129,8 @@ function renderDocs(root){
 }
 
 /* ---------------- Interactive Demo ---------------- */
-const DemoState = { variant:0, fx:'Pixelate', param:14, level:4, compare:true };
+const DemoState = { variant:0, fx:'Pixelate', param:14, level:4, compare:true,
+  celMode:'rgb_posterize', celSteps:4, celOrder:'rgba' };
 /* demo: one main slider param per filter (other params use FX_LIB defaults) */
 const DEMO_FX_ORDER = ['Pixelate','Blur','Solid Cover','Glitch','Cel Shader','Cellular Noise','Oil Painting'];
 const DEMO_FX = {
@@ -1061,7 +1158,8 @@ function renderDemo(root){
   '<div class="panel"><h3>'+t('demo.filter')+'</h3><p class="psub">'+t('demo.filterSub')+'</p>'+
     '<div class="field"><select class="sel" id="dFxSel" aria-label="'+esc(t('demo.filter'))+'">'+
     DEMO_FX_ORDER.map(n=>'<option value="'+n+'"'+(n===DemoState.fx?' selected':'')+'>'+fxName(n)+'</option>').join('')+'</select></div>'+
-    '<div class="field"><label id="dParamLabel">'+t(DEMO_FX[DemoState.fx].labelKey)+'</label><div class="row"><input type="range" id="dParam" min="'+DEMO_FX[DemoState.fx].min+'" max="'+DEMO_FX[DemoState.fx].max+'" value="'+DEMO_FX[DemoState.fx].def+'" aria-label="'+esc(t(DEMO_FX[DemoState.fx].labelKey))+'"><output id="dParamOut">'+DEMO_FX[DemoState.fx].def+'</output></div></div></div>'+
+    '<div class="field"><label id="dParamLabel">'+t(DEMO_FX[DemoState.fx].labelKey)+'</label><div class="row"><input type="range" id="dParam" min="'+DEMO_FX[DemoState.fx].min+'" max="'+DEMO_FX[DemoState.fx].max+'" value="'+DEMO_FX[DemoState.fx].def+'" aria-label="'+esc(t(DEMO_FX[DemoState.fx].labelKey))+'"><output id="dParamOut">'+DEMO_FX[DemoState.fx].def+'</output></div></div>'+
+    '<div id="dCelExtra"></div></div>'+
   '<div class="panel"><h3>'+t('demo.globalLevel')+' <span class="mono" id="dLvlOut" style="color:var(--cyan)">4</span></h3>'+
     '<p class="psub">'+t('demo.levelSub')+'</p>'+
     '<div class="levels" id="dLevels">'+Array.from({length:N_LEVELS},(_,i)=>'<div class="lvl'+(i===4?' cur':'')+'" data-l="'+i+'"><b>'+i+'</b><small>'+esc(lvlName(i))+'</small></div>').join('')+'</div>'+
@@ -1078,6 +1176,7 @@ function renderDemo(root){
       params[k]=(pd.def!=null?pd.def:Math.round((pd.min+pd.max)/2)); });
     const v=+$('#dParam').value; $('#dParamOut').textContent=v;
     params[cfg.key]=v;
+    if(DemoState.fx==='Cel Shader'){ params.mode=DemoState.celMode; params.steps=DemoState.celSteps; params.channelOrder=DemoState.celOrder; }
     renderStack(src, dst, [{name:DemoState.fx,on:true,params:params}]);
     $('#dCap').textContent = t('demo.filtered',{fx:fxName(DemoState.fx)});
     const feed=$('#dFeed');
@@ -1087,14 +1186,37 @@ function renderDemo(root){
   };
   $$('#dVar button').forEach(b=>b.onclick=()=>{ $$('#dVar button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); DemoState.variant=+b.dataset.v; paint(); draw(); });
+  /* Cel Shader extras: mode select + (rgb_posterize) steps & channel order.
+     Same algorithms as Effects Studio; simplified panel per product spec §7. */
+  const renderCelExtra=()=>{
+    const box=$('#dCelExtra'); if(!box) return;
+    if(DemoState.fx!=='Cel Shader'){ box.innerHTML=''; box.style.display='none'; return; }
+    box.style.display='';
+    const modes=['rgb_posterize','regions','classic'];
+    const mlabels={rgb_posterize:'fx.mPosterize',regions:'fx.mRegions',classic:'fx.mClassic'};
+    let h='<div class="field"><label>'+t('fx.pMode')+'</label><div class="row"><select class="sel" id="dCelMode" style="flex:1" aria-label="'+esc(t('fx.pMode'))+'">'+
+      modes.map(m=>'<option value="'+m+'"'+(m===DemoState.celMode?' selected':'')+'>'+t(mlabels[m])+'</option>').join('')+'</select></div></div>';
+    if(DemoState.celMode==='rgb_posterize'){
+      h+='<div class="field"><label>'+t('fx.pColorSteps')+'</label><div class="row"><input type="range" id="dCelSteps" min="2" max="16" value="'+DemoState.celSteps+'" style="flex:1" aria-label="'+esc(t('fx.pColorSteps'))+'"><output id="dCelStepsOut">'+DemoState.celSteps+'</output></div></div>';
+      h+='<div class="field"><label>'+t('fx.pChannelOrder')+'</label><div class="row"><select class="sel" id="dCelOrder" style="flex:1" aria-label="'+esc(t('fx.pChannelOrder'))+'">'+
+        ['rgba','bgra'].map(o=>'<option value="'+o+'"'+(o===DemoState.celOrder?' selected':'')+'>'+t(o==='rgba'?'fx.mRGBA':'fx.mBGRA')+'</option>').join('')+'</select></div></div>';
+    }
+    box.innerHTML=h;
+    $('#dCelMode').onchange=e=>{ DemoState.celMode=e.target.value; renderCelExtra(); draw(); };
+    const st=$('#dCelSteps');
+    if(st) st.oninput=()=>{ DemoState.celSteps=+st.value; $('#dCelStepsOut').textContent=st.value; draw(); };
+    const co=$('#dCelOrder');
+    if(co) co.onchange=e=>{ DemoState.celOrder=e.target.value; draw(); };
+  };
   $('#dFxSel').onchange=e=>{
     DemoState.fx=e.target.value;
     const cfg=DEMO_FX[DemoState.fx], r=$('#dParam');
     r.min=cfg.min; r.max=cfg.max; r.value=cfg.def;
     $('#dParamLabel').textContent=t(cfg.labelKey);
     r.setAttribute('aria-label', t(cfg.labelKey));
-    draw(); };
+    renderCelExtra(); draw(); };
   $('#dParam').oninput = draw;
+  renderCelExtra();
   $$('#dLevels .lvl').forEach(el=>el.onclick=()=>{ $$('#dLevels .lvl').forEach(x=>x.classList.remove('cur'));
     el.classList.add('cur'); DemoState.level=+el.dataset.l;
     $('#dLvlOut').textContent=DemoState.level; $('#dProg').style.width=(DemoState.level*10)+'%'; draw();
@@ -1266,8 +1388,8 @@ const FX_LIB = [
     seed:{labelKey:'fx.pSeed', min:0, max:999, def:42},
     animSpeed:{labelKey:'fx.pAnimSpeed', min:0, max:5, def:0} } },
   { name:'Cel Shader', descKey:'fx.dCel', legacyMode:'classic', params:{
-    mode:{type:'select', labelKey:'fx.pMode', options:['classic','regions'],
-      labels:{classic:'fx.mClassic',regions:'fx.mRegions'}, def:'regions'},
+    mode:{type:'select', labelKey:'fx.pMode', options:['classic','regions','rgb_posterize'],
+      labels:{classic:'fx.mClassic',regions:'fx.mRegions',rgb_posterize:'fx.mPosterize'}, def:'rgb_posterize'},
     levels:{labelKey:'fx.pLevels', min:2, max:12, def:5, modes:['classic']},
     edgeThreshold:{labelKey:'fx.pEdgeThreshold', min:0, max:100, def:35, modes:['classic']},
     outline:{labelKey:'fx.pOutline', min:0, max:100, def:60, modes:['classic']},
@@ -1279,8 +1401,12 @@ const FX_LIB = [
     colorVariation:{labelKey:'fx.pColorVariation', min:0, max:100, def:25, modes:['regions']},
     edgeIrregularity:{labelKey:'fx.pEdgeIrregularity', min:0, max:100, def:55, modes:['regions']},
     edgeSmoothness:{labelKey:'fx.pEdgeSmoothness', min:0, max:100, def:60, modes:['regions']},
+    structure:{labelKey:'fx.pStructure', min:0, max:100, def:60, modes:['regions']},
     seed:{labelKey:'fx.pSeed', min:0, max:999, def:42, modes:['regions']},
-    blend:{labelKey:'fx.pBlend', min:0, max:100, def:100, modes:['classic','regions']} } },
+    steps:{labelKey:'fx.pColorSteps', min:2, max:16, def:4, modes:['rgb_posterize']},
+    channelOrder:{type:'select', labelKey:'fx.pChannelOrder', options:['rgba','bgra'],
+      labels:{rgba:'fx.mRGBA',bgra:'fx.mBGRA'}, def:'rgba', modes:['rgb_posterize']},
+    blend:{labelKey:'fx.pBlend', min:0, max:100, def:100, modes:['classic','regions','rgb_posterize']} } },
   { name:'Cellular Noise', descKey:'fx.dCellular', legacyMode:'overlay', params:{
     mode:{type:'select', labelKey:'fx.pMode', options:['flat','fragments','overlay'],
       labels:{flat:'fx.mFlat',fragments:'fx.mFragments',overlay:'fx.mOverlay'}, def:'flat'},

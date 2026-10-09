@@ -583,7 +583,7 @@ function applyCelPosterize(c, w, h, p){
   c.putImageData(img, 0, 0);
 }
 
-/* Cel Shader dispatcher: old configs (no mode) -> classic; new adds default to regions */
+/* Cel Shader dispatcher: old configs (no mode) -> classic; new adds default to rgb_posterize */
 function applyCel(c, w, h, p){
   const mode = p.mode || 'classic';
   if(mode === 'regions') applyCelRegions(c, w, h, p);
@@ -1092,6 +1092,25 @@ function initHeroConsole(){
 }
 
 /* ---------------- Marketing: Docs ---------------- */
+/* Docs: Cel Shader three-mode reference block (prose only; no algorithm changes). */
+function celDocs(){
+  const mode=(title,d1,d2,uses,params,note)=>{
+    let h='<h4 style="margin:20px 0 6px;font-size:15px">'+t(title)+'</h4>'+
+      '<p style="margin:0 0 8px">'+t(d1)+'</p>'+
+      '<p class="muted" style="margin:0 0 8px">'+t(d2)+'</p>';
+    if(note) h+='<p class="warn" style="margin:0 0 8px;font-size:13px">'+t(note)+'</p>';
+    h+='<p style="margin:0 0 6px"><b>'+t('docs.celUse')+':</b> '+uses.map(u=>t(u)).join(' · ')+'</p>'+
+      '<p class="mono" style="margin:0;font-size:12.5px;color:var(--muted)">'+params+'</p>';
+    return h;
+  };
+  return mode('docs.celP1t','docs.celP1d1','docs.celP1d2',['docs.celP1u1','docs.celP1u2','docs.celP1u3'],
+      t('fx.pColorSteps')+' 2–16 · '+t('fx.pChannelOrder')+' RGBA / BGRA · '+t('fx.pBlend')+' 0–100%')+
+    mode('docs.celP2t','docs.celP2d1','docs.celP2d2',['docs.celP2u1','docs.celP2u2','docs.celP2u3'],
+      t('fx.pRegionSize')+' 8–64 · '+t('fx.pColorCount')+' 2–8 · '+t('fx.pPalette')+' · '+t('fx.pStructure')+' 0–100 · '+t('fx.pBlend')+' 0–100%','docs.celP2note')+
+    mode('docs.celP3t','docs.celP3d1','docs.celP3d2',['docs.celP3u1','docs.celP3u2','docs.celP3u3'],
+      t('fx.pLevels')+' 2–12 · '+t('fx.pEdgeThreshold')+' · '+t('fx.pOutline')+' · '+t('fx.pSaturation')+' · '+t('fx.pBlend')+' 0–100%');
+}
+
 function renderDocs(root){
   root.innerHTML = marketingNav() +
   '<section class="msection" style="padding-top:110px;max-width:900px"><div class="kick">'+t('docs.kick')+'</div>'+
@@ -1120,6 +1139,11 @@ function renderDocs(root){
    ['Glitch','intensity 0–100 · rgb 0–20px · 6 params'],['Cel Shader','rgb-posterize / palette-regions / classic · 3 modes'],['Cellular Noise','flat / fragments / overlay · 3 modes'],['Oil Painting','Kuwahara brush 1–8 · 8 params']].map(r=>
   '<tr><td>'+fxName(r[0])+'</td><td class="mono">'+r[1]+'</td><td><span class="badge badge-live">'+t('docs.working')+'</span></td></tr>').join('')+'</table></div>'+
 
+  '<div class="panel"><h3>'+t('docs.celT')+'</h3><p class="psub">'+t('docs.celSub')+'</p>'+
+  celDocs()+
+  '<div class="flex gap8 wrap mt16"><a class="btn btn-primary btn-sm" href="#/demo">'+t('sc.fullDemo')+'</a> '+
+  '<a class="btn btn-ghost btn-sm" href="#/app/effects">'+t('sc.openStudio')+'</a></div></div>'+
+
   '<div class="panel"><h3>'+t('docs.s4t')+'</h3>'+
   [['docs.g1t','docs.g1d','badge-live','docs.guaranteed'],['docs.g2t','docs.g2d','badge-live','docs.guaranteed'],
    ['docs.g3t','docs.g3d','badge-live','docs.guaranteed'],['docs.g4t','docs.g4d','badge-demo','docs.honest']].map(g=>
@@ -1146,12 +1170,13 @@ function renderDemo(root){
   root.innerHTML = marketingNav() +
   '<div class="demo-head"><span class="badge badge-demo"><span class="dot"></span>'+t('demo.badge')+'</span>'+
   '<h1 style="margin:16px 0 10px">'+t('demo.title')+'</h1>'+
-  '<p class="muted">'+t('demo.lede')+'</p></div>'+
+  '<p class="muted" style="margin-bottom:8px">'+t('demo.lede')+'</p>'+
+  '<p class="psub" style="margin-bottom:0">'+t('demo.lede2').replace('{url}','#/app/effects')+'</p></div>'+
   '<div class="demo-grid"><div class="preview-box hud-corner">'+
     '<div class="compare"><figure><canvas id="dSrc" width="420" height="300"></canvas><figcaption>'+t('demo.source')+'</figcaption></figure>'+
     '<figure><canvas id="dDst" width="420" height="300"></canvas><figcaption id="dCap">'+t('demo.filtered',{fx:fxName(DemoState.fx)})+'</figcaption></figure></div>'+
     '<div class="panel mt16" style="margin-bottom:0"><h3>'+t('demo.feedback')+' <span class="badge badge-demo" style="margin-left:8px">'+t('demo.simulated')+'</span></h3>'+
-    '<p class="psub">'+t('demo.feedSub')+'</p><div id="dFeed" class="log" style="max-height:180px"></div></div>'+
+    '<p class="psub">'+t('demo.feedSub')+'</p><div id="dFeed" class="log" style="max-height:340px"></div></div>'+
   '</div>'+
   '<div><div class="panel"><h3>'+t('demo.pattern')+'</h3><p class="psub">'+t('demo.patternSub')+'</p>'+
     '<div class="seg" id="dVar"><button data-v="0" class="on">'+t('demo.orbs')+'</button><button data-v="1">'+t('demo.bars')+'</button><button data-v="2">'+t('demo.wave')+'</button></div></div>'+
@@ -1169,6 +1194,25 @@ function renderDemo(root){
   '</div></div>'+marketingFoot();
   const src=$('#dSrc'), dst=$('#dDst');
   const paint=()=>paintPattern(src.getContext('2d'), src.width, src.height, DemoState.variant);
+  /* Demo feedback: "Current Preview" reads the real DemoState (per-filter
+     params, never a generic "intensity"); "Simulated Policy" keeps the
+     Global Level example log, explicitly labeled as simulated data. */
+  const demoPreviewRows=()=>{
+    const rows=[[t('demo.previewFx'), fxName(DemoState.fx)]];
+    if(DemoState.fx==='Cel Shader'){
+      const ml={rgb_posterize:'fx.mPosterize',regions:'fx.mRegions',classic:'fx.mClassic'};
+      rows.push([t('fx.pMode'), t(ml[DemoState.celMode])]);
+      if(DemoState.celMode==='rgb_posterize'){
+        rows.push([t('fx.pColorSteps'), DemoState.celSteps]);
+        rows.push([t('fx.pChannelOrder'), DemoState.celOrder.toUpperCase()]);
+      }
+      rows.push([t('fx.pBlend'), $('#dParam').value+'%']);
+    }else{
+      rows.push([t(DEMO_FX[DemoState.fx].labelKey), $('#dParam').value]);
+    }
+    rows.push([t('demo.previewSt'), t('demo.previewStatus')]);
+    return rows.map(r=>'<div class="prow"><span class="k">'+esc(r[0])+'</span><span class="v">'+esc(String(r[1]))+'</span></div>').join('');
+  };
   const draw=()=>{
     const cfg=DEMO_FX[DemoState.fx], lib=FX_LIB.find(l=>l.name===DemoState.fx);
     const params={};
@@ -1180,9 +1224,12 @@ function renderDemo(root){
     renderStack(src, dst, [{name:DemoState.fx,on:true,params:params}]);
     $('#dCap').textContent = t('demo.filtered',{fx:fxName(DemoState.fx)});
     const feed=$('#dFeed');
-    feed.innerHTML = '<div class="ln"><span class="ts">now</span><span class="inf">'+esc(t('demo.lvl'+DemoState.level))+'</span></div>'+
-      '<div class="ln"><span class="ts">now</span>'+esc(t('demo.feedApplied',{fx:fxName(DemoState.fx), v:v}))+' <span class="ok">✓</span></div>'+
-      '<div class="ln"><span class="ts">now</span><span class="warn">'+esc(t('demo.feedDemo'))+'</span></div>';
+    feed.innerHTML =
+      '<div class="dsec"><div class="dsec-t">'+esc(t('demo.previewT'))+'</div>'+demoPreviewRows()+'</div>'+
+      '<div class="dsec"><div class="dsec-t">'+esc(t('demo.simT'))+'</div>'+
+      '<div class="ln"><span class="ts">now</span><span class="inf">'+esc(t('demo.simEx')+' · L'+DemoState.level)+'</span></div>'+
+      '<div class="ln"><span class="ts">now</span><span class="inf">'+esc(t('demo.lvl'+DemoState.level))+'</span></div>'+
+      '<div class="ln"><span class="ts">now</span><span class="warn">'+esc(t('demo.feedDemo'))+'</span></div></div>';
   };
   $$('#dVar button').forEach(b=>b.onclick=()=>{ $$('#dVar button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); DemoState.variant=+b.dataset.v; paint(); draw(); });

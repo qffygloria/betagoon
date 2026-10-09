@@ -278,6 +278,11 @@ select.sel:focus, input.inp:focus{ outline:none; border-color:var(--cyan); }
 .log .ts{ color:#54687e; margin-right:10px; }
 .log .ok{ color:var(--green); } .log .warn{ color:var(--amber); } .log .err{ color:var(--red); }
 .log .inf{ color:var(--cyan); }
+/* demo feedback: current preview vs simulated policy */
+.dsec{ margin-bottom:14px; } .dsec:last-child{ margin-bottom:0; }
+.dsec-t{ font-size:11px; letter-spacing:.14em; font-weight:700; color:var(--cyan); margin-bottom:6px; text-transform:uppercase; }
+.prow{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; font-size:12.5px; }
+.prow .k{ color:var(--muted); } .prow .v{ font-family:var(--font-mono); }
 
 /* effect stack */
 .stack{ display:flex; flex-direction:column; gap:8px; }

@@ -1,3 +1,5 @@
+**Note:** This repository has migrated to **qffygloria/synveil** — https://github.com/qffygloria/synveil
+
 # SYNVEIL — Adaptive Visual Interaction System
 
 **SYNVEIL** (Chinese: 序帷) is an *Adaptive Visual Interaction System* concept:
